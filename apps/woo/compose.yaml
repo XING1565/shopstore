@@ -1,0 +1,87 @@
+name: shopstore-woo
+
+# ISSUE-0003（config）：WordPress + WooCommerce 基础环境
+# - 版本来自 apps/woo/.env（模板：infra/env/woo.env.example），缺省值仅用于本地演示。
+# - 首次 `docker compose up -d --build` 会自动：装 WP、装/激活 WooCommerce、配置
+#   站点 URL / 货币 / 地区 / 无支付 checkout、建测试账号与基础商品（见 docker/provision.sh）。
+# - 数据持久化：web-data（整站含 wp-content，覆盖插件/上传/wp-config）与 db-data（MySQL）。
+# - 不需要人工修改容器内部文件即可启动；运行/编排/备份脚本由 ops 在 ISSUE-0010 落 infra/。
+
+services:
+  db:
+    image: mysql:${MYSQL_VERSION:-8.0}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${WP_DB_ROOT_PASSWORD:-change_me_in_env_file}
+      MYSQL_DATABASE: ${WP_DB_NAME:-shopstore_woo}
+      MYSQL_USER: ${WP_DB_USER:-wordpress}
+      MYSQL_PASSWORD: ${WP_DB_PASSWORD:-change_me_in_env_file}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+
+  woo:
+    build:
+      context: ./docker
+      args:
+        WORDPRESS_BASE_IMAGE: wordpress:${WORDPRESS_VERSION:-6.9}-php8.3-apache
+        WOOCOMMERCE_VERSION: ${WOOCOMMERCE_VERSION:-10.8.0}
+    image: shopstore-woo:local
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${WOO_PORT:-8080}:80"
+    environment:
+      # 官方 wordpress 镜像用 WORDPRESS_DB_* 自动生成 wp-config.php
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_NAME: ${WP_DB_NAME:-shopstore_woo}
+      WORDPRESS_DB_USER: ${WP_DB_USER:-wordpress}
+      WORDPRESS_DB_PASSWORD: ${WP_DB_PASSWORD:-change_me_in_env_file}
+      WORDPRESS_TABLE_PREFIX: ${WP_DB_PREFIX:-wp_}
+      WORDPRESS_DEBUG: ${WP_DEBUG:-0}
+      # 下列变量供 docker/provision.sh 消费
+      WOO_BASE_URL: ${WOO_BASE_URL:-http://localhost:8080}
+      WOO_SITE_TITLE: ${WOO_SITE_TITLE:-Shopstore Demo}
+      WOO_ADMIN_USER: ${WOO_ADMIN_USER:-woo_admin}
+      WOO_ADMIN_PASSWORD: ${WOO_ADMIN_PASSWORD:-change_me_in_env_file}
+      WOO_ADMIN_EMAIL: ${WOO_ADMIN_EMAIL:-admin@example.test}
+      WOO_BUYER_USERNAME: ${WOO_BUYER_USERNAME:-retailer_demo}
+      WOO_BUYER_PASSWORD: ${WOO_BUYER_PASSWORD:-change_me_in_env_file}
+      WOO_BUYER_EMAIL: ${WOO_BUYER_EMAIL:-retailer_demo@example.test}
+      WOO_CURRENCY: ${WOO_CURRENCY:-CNY}
+      WOO_DEFAULT_COUNTRY: ${WOO_DEFAULT_COUNTRY:-CN}
+      WOO_STORE_ADDRESS: ${WOO_STORE_ADDRESS:-1 Demo Road}
+      WOO_STORE_CITY: ${WOO_STORE_CITY:-Shanghai}
+      WOO_STORE_POSTCODE: ${WOO_STORE_POSTCODE:-200000}
+      WOOCOMMERCE_VERSION: ${WOOCOMMERCE_VERSION:-10.8.0}
+      MARKETPLACE_CORE_URL: ${MARKETPLACE_CORE_URL:-http://localhost:8000}
+      WP_ENVIRONMENT_TYPE: ${WP_ENVIRONMENT_TYPE:-local}
+    volumes:
+      # WP 核心+wp-content 持久化（重启/重建不丢数据，重置用 `docker compose down -v`）
+      - web-data:/var/www/html
+      # 后续 marketplace-bridge 插件目录（dev 代码实时可见）
+      - ./plugins/marketplace-bridge:/var/www/html/wp-content/plugins/marketplace-bridge
+      # config 维护的无支付 checkout mu-plugin（只读挂载）
+      - ./config/mu-plugins:/var/www/html/wp-content/mu-plugins:ro
+      # provision 使用的设置/页面/种子数据（只读挂载）
+      - ./config:/woo-config:ro
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\",80)?0:1);'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+volumes:
+  db-data:
+  web-data:
