@@ -68,6 +68,7 @@ shopstore/
 - PRD：`docs/PRD.md`
 - 开发方案：`docs/阶段性开发方案.md`
 - 命名规范：`docs/命名规范.md`
+- 测试数据说明：`docs/测试数据说明.md`
 - 分支与提交规范：`docs/分支与提交规范.md`
 - 本地开发说明：`docs/本地开发说明.md`
 - 环境变量模板：`infra/env/`

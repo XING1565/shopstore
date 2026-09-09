@@ -28,6 +28,7 @@
   - 站点 URL / 货币与地区 / 无支付 checkout 基线（占位 mu-plugin）配置
   - 测试管理员与测试买家账号
   - 基础商品 `DEMO-SKU-001` / `DEMO-SKU-002`
+  - ISSUE-0008 canonical 测试数据：品牌 `Demo Brand A`、买家 `retailer_pending` / `retailer_approved`（`seed-test-data.php`）
 - 数据持久化：`web-data`（WP 整站含 wp-content / 上传 / 已装插件）+ `db-data`（MySQL）
 
 ## 本地启动（需要 Docker，含 Docker Compose V2）
@@ -51,6 +52,7 @@ docker compose logs -f woo        # 观察 provision 日志
 | 管理员可登录 | `WOO_ADMIN_USER` / `WOO_ADMIN_PASSWORD`（见 .env）登录 `/wp-admin` |
 | 测试买家可登录 | `WOO_BUYER_USERNAME` / `WOO_BUYER_PASSWORD` 登录 `/my-account` |
 | 商品可在 Woo 后台查看 | 后台「商品 → 所有商品」可见 DEMO-SKU-001 / 002 |
+| 品牌/买家存在 | 后台可见分类 `Demo Brand A`；用户列表含 retailer_pending / retailer_approved |
 | 不依赖人工修改容器文件 | 重启后自动收敛：`docker compose restart woo`，无手工步骤 |
 
 常用操作：
@@ -75,14 +77,18 @@ docker compose exec woo wp --allow-root --path=/var/www/html wc --help
 | 账号 | 角色 | 默认值（来自 .env，模板为占位符，需自行设置） |
 | --- | --- | --- |
 | 管理员 | administrator | `woo_admin` |
-| 测试买家 | customer | `retailer_demo` |
+| 测试买家（ISSUE-0003 基础） | customer | `retailer_demo` |
+| 测试买家（ISSUE-0008，pending） | customer | `retailer_pending` |
+| 测试买家（ISSUE-0008，approved） | customer | `retailer_approved` |
 
-邮箱统一使用 `.test` 域名（`admin@example.test` / `retailer_demo@example.test`），不出现真实客户资料。
+测试买家密码统一由 `WOO_RETAILER_PASSWORD`（`.env`）提供；邮箱统一使用 `.test` 域名
+（`admin@example.test` / `retailer_demo@example.test` / `retailer_*@example.test`），不出现真实客户资料。
+完整测试数据清单见 `docs/测试数据说明.md`。
 
 ## 协作边界与后续
 
 - 插件/主题**代码**修改归 dev；WooCommerce 环境安装与**站点配置**归 config；运行/编排/备份归 ops。
 - `config/mu-plugins/woo-no-payment-checkout.php` 为阶段 0「无支付」占位，支付/账期策略由后续阶段
   的 marketplace-bridge（dev）接管，接管时先停用该占位。
-- ISSUE-0008（config）将扩展完整测试数据集与重置脚本；ISSUE-0010（ops）将在此之上固化
-  `infra/docker` + `infra/scripts` 的一键编排。
+- ISSUE-0008（config）已扩展完整测试数据集（品牌 / retailer 买家，见 `docs/测试数据说明.md`）；
+  ISSUE-0010（ops）将在此基础上固化 `infra/docker` + `infra/scripts` 的一键编排。

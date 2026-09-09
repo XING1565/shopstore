@@ -58,6 +58,7 @@ services:
       WOO_BUYER_USERNAME: ${WOO_BUYER_USERNAME:-retailer_demo}
       WOO_BUYER_PASSWORD: ${WOO_BUYER_PASSWORD:-change_me_in_env_file}
       WOO_BUYER_EMAIL: ${WOO_BUYER_EMAIL:-retailer_demo@example.test}
+      WOO_RETAILER_PASSWORD: ${WOO_RETAILER_PASSWORD:-change_me_in_env_file}
       WOO_CURRENCY: ${WOO_CURRENCY:-CNY}
       WOO_DEFAULT_COUNTRY: ${WOO_DEFAULT_COUNTRY:-CN}
       WOO_STORE_ADDRESS: ${WOO_STORE_ADDRESS:-1 Demo Road}
