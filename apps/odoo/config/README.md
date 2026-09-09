@@ -1,4 +1,4 @@
-# apps/odoo/config — Odoo 运行时配置（ISSUE-0004）
+# apps/odoo/config — Odoo 运行时配置（ISSUE-0004 + ISSUE-0008）
 
 config 负责的 Odoo 环境安装与业务配置全部放在本目录，遵循“原生配置优先、幂等可重跑”。
 
@@ -46,7 +46,8 @@ config 负责的 Odoo 环境安装与业务配置全部放在本目录，遵循�
 | 公司 | ShopStore Demo Co |
 | 默认仓库 | WH（出库流程 = 单步交货 ship_only） |
 | 基础库存地点 | WH/Stock、WH/Input、WH/Output（随仓库自动创建） |
-| 测试客户 | Demo Retailer (Approved)，ref `DEMO-RTL-001` |
+| 测试客户 | Demo Retailer (Approved)，ref `DEMO-RTL-001`（retailer_approved@example.test） |
+| 待审测试客户 | Demo Retailer (Pending)，ref `DEMO-RTL-002`（retailer_pending@example.test，ISSUE-0008） |
 | 测试供应商 | Demo Supplier，ref `DEMO-SUP-001` |
 | 测试产品 / SKU | `DEMO-SKU-001`（初始库存 120）、`DEMO-SKU-002`（初始库存 80），可库存、唯一 SKU |
 | 模块 | sales（sale）、inventory（stock）已安装 |
@@ -73,6 +74,6 @@ config 负责的 Odoo 环境安装与业务配置全部放在本目录，遵循�
 
 ## 协作边界
 
-- 本目录归 config（ISSUE-0004）维护；自定义 addon 代码在 `apps/odoo/addons/`（dev）。
+- 本目录归 config（ISSUE-0004 + ISSUE-0008）维护；自定义 addon 代码在 `apps/odoo/addons/`（dev）。
 - 项目级一键启动 / 停止 / 备份 / 日志脚本由 ops（ISSUE-0010）在 `infra/scripts`、`infra/docker` 提供并整合。
 - Odoo 数据库与 filestore 是本地运行时数据（命名卷），不提交进 git。

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ISSUE-0004 Odoo base environment - idempotent provisioning (bootstrap).
+"""Odoo base environment + ISSUE-0008 canonical test data - idempotent provisioning.
 
 Runs inside `odoo shell` (see apps/odoo/config/README.md / provision/run.ps1).
 Idempotency contract: safe to re-run; re-running changes nothing when the
@@ -10,7 +10,8 @@ Target state (local demo, no real data):
   - company        ShopStore Demo Co
   - warehouse      WH (1-step delivery: ship_only)
   - locations      WH/Stock, WH/Input, WH/Output (auto-created by warehouse)
-  - customer       Demo Retailer (Approved)   ref DEMO-RTL-001
+  - customers      Demo Retailer (Approved) ref DEMO-RTL-001 (retailer_approved@example.test)
+                   Demo Retailer (Pending)  ref DEMO-RTL-002 (retailer_pending@example.test)
   - vendor         Demo Supplier              ref DEMO-SUP-001
   - products       DEMO-SKU-001 / DEMO-SKU-002 (storable, unique SKU)
   - initial stock  DEMO-SKU-001: 120, DEMO-SKU-002: 80 at WH/Stock
@@ -110,7 +111,7 @@ def configure_users(env, company):
 
 
 def configure_partners(env):
-    customer = get_or_create(
+    customer_approved = get_or_create(
         env, 'res.partner',
         [('ref', '=', 'DEMO-RTL-001')],
         {
@@ -118,6 +119,16 @@ def configure_partners(env):
             'ref': 'DEMO-RTL-001',
             'company_type': 'company',
             'email': 'retailer_approved@example.test',
+        },
+    )
+    customer_pending = get_or_create(
+        env, 'res.partner',
+        [('ref', '=', 'DEMO-RTL-002')],
+        {
+            'name': 'Demo Retailer (Pending)',
+            'ref': 'DEMO-RTL-002',
+            'company_type': 'company',
+            'email': 'retailer_pending@example.test',
         },
     )
     vendor = get_or_create(
@@ -131,7 +142,7 @@ def configure_partners(env):
             'supplier_rank': 1,
         },
     )
-    return customer, vendor
+    return customer_approved, customer_pending, vendor
 
 
 def ensure_storable_product(env, sku, name):

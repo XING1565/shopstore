@@ -46,6 +46,7 @@ def main(env):
 
     Partner = env['res.partner'].sudo()
     check('customer DEMO-RTL-001 exists', bool(Partner.search([('ref', '=', 'DEMO-RTL-001')], limit=1)))
+    check('customer DEMO-RTL-002 exists', bool(Partner.search([('ref', '=', 'DEMO-RTL-002')], limit=1)))
     check('supplier DEMO-SUP-001 exists', bool(Partner.search([('ref', '=', 'DEMO-SUP-001')], limit=1)))
 
     Users = env['res.users'].sudo()

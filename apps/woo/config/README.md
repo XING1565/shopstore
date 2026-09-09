@@ -1,4 +1,4 @@
-# apps/woo/config 目录（ISSUE-0003，Owner: config）
+# apps/woo/config 目录（ISSUE-0003 + ISSUE-0008，Owner: config）
 
 本目录存放 WooCommerce 基础环境的**配置即代码**，由 `docker/provision.sh` 在容器启动时
 只读挂载执行（`/woo-config`），全部幂等、可重复运行：
@@ -7,7 +7,8 @@
 | --- | --- | --- |
 | `woo-options.php` | 货币 / 地区 / 结算 / 计量等 WooCommerce 设置 | 值可用 `WOO_*` 环境变量覆盖 |
 | `woo-pages.php` | 确保 shop / cart / checkout / my-account 页面存在并写入 WC 页面选项 | 按 slug 幂等创建 |
-| `seed-products.php` | 基础商品种子数据（DEMO-SKU-001 / 002） | 按 SKU 幂等 upsert；完整测试数据属 ISSUE-0008 |
+| `seed-products.php` | 基础商品种子数据（DEMO-SKU-001 / 002） | 按 SKU 幂等 upsert（ISSUE-0003） |
+| `seed-test-data.php` | ISSUE-0008 canonical 测试数据：品牌 Demo Brand A + retailer_pending/approved 买家账号 + DEMO 商品挂品牌 | 按唯一键幂等；密码来自 `WOO_RETAILER_PASSWORD` |
 | `mu-plugins/woo-no-payment-checkout.php` | 无支付 checkout 阶段 0 占位 | 需真实支付时先停用，由 marketplace-bridge（dev）接管 |
 
 所有权边界（对齐 `apps/woo/README.md`）：

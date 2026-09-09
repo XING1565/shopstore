@@ -28,6 +28,7 @@ fail() { echo "[woo-provision] ERROR: $*" >&2; exit 1; }
 : "${WOO_BUYER_USERNAME:=retailer_demo}"
 : "${WOO_BUYER_PASSWORD:=change_me_in_env_file}"
 : "${WOO_BUYER_EMAIL:=retailer_demo@example.test}"
+: "${WOO_RETAILER_PASSWORD:=change_me_in_env_file}"
 : "${WOOCOMMERCE_VERSION:=10.8.0}"
 
 cd /var/www/html
@@ -91,6 +92,9 @@ if [ -f /woo-config/woo-pages.php ]; then
 fi
 if [ -f /woo-config/seed-products.php ]; then
   "${WP[@]}" eval-file /woo-config/seed-products.php
+fi
+if [ -f /woo-config/seed-test-data.php ]; then
+  "${WP[@]}" eval-file /woo-config/seed-test-data.php
 fi
 
 # ---- 4) Test accounts: converge to .env so documented credentials always work ----

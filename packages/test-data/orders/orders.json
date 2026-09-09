@@ -1,0 +1,7 @@
+{
+  "namespace": "DEMO",
+  "domain": "example.test",
+  "schema_version": 1,
+  "orders": [],
+  "note": "阶段 0 不生成正式 marketplace 订单。Odoo 演示销售单 SO-DEMO-001 属于 ISSUE-0004 验收（verify_odoo.py），此处仅保留订单命名空间占位，待阶段一填充。"
+}

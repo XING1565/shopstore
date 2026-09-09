@@ -1,0 +1,26 @@
+{
+  "namespace": "DEMO",
+  "domain": "example.test",
+  "schema_version": 1,
+  "products": [
+    {
+      "sku": "DEMO-SKU-001",
+      "brand_id": "BRAND-001",
+      "woo_name": "Demo Product A",
+      "woo_regular_price": "199.00",
+      "odoo_name": "Demo Product A - White Ceramic Mug",
+      "odoo_default_code": "DEMO-SKU-001",
+      "odoo_initial_qty": 120
+    },
+    {
+      "sku": "DEMO-SKU-002",
+      "brand_id": "BRAND-001",
+      "woo_name": "Demo Product B",
+      "woo_regular_price": "399.00",
+      "odoo_name": "Demo Product B - Canvas Tote Bag",
+      "odoo_default_code": "DEMO-SKU-002",
+      "odoo_initial_qty": 80
+    }
+  ],
+  "note": "SKU 采用 DEMO-SKU-### 固定命名空间。Woo 商品由 apps/woo/config/seed-products.php 幂等创建；Odoo 产品与库存由 apps/odoo/config/provision/provision_odoo.py 幂等创建。详见 docs/测试数据说明.md。"
+}
