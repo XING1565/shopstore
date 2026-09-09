@@ -1,0 +1,69 @@
+# ---------- 密钥与本地配置：绝不提交真实值 ----------
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.env.local
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+secrets.*
+wp-config.php
+wp-config-local.php
+odoo.conf
+!**/odoo.conf.example
+
+# ---------- 本地数据库 / 数据文件 ----------
+*.db
+*.sqlite
+*.sqlite3
+*.mysql
+*.dump
+*.bak
+data/
+filestore/
+uploads/
+!**/.gitkeep
+
+# ---------- WordPress / WooCommerce 运行时产物 ----------
+wp-content/uploads/
+wp-content/cache/
+wp-content/upgrade/
+*.wpress
+
+# ---------- 语言 / 框架产物 ----------
+node_modules/
+vendor/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+coverage/
+*.egg-info/
+composer.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+poetry.lock
+
+# ---------- 日志 / 临时文件 ----------
+*.log
+logs/
+tmp/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ---------- IDE ----------
+.idea/
+.vscode/
+*.code-workspace
