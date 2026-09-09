@@ -8,7 +8,7 @@
 | 文件 | 对应应用 | 复制目标（本地约定） |
 | --- | --- | --- |
 | `core.env.example` | Marketplace Core | `apps/core/.env` 或由启动脚本读取 |
-| `woo.env.example` | WordPress / WooCommerce | 由 Docker/本地启动脚本读取 |
+| `woo.env.example` | WordPress / WooCommerce | `apps/woo/.env`（`docker compose` 读取） |
 | `odoo.env.example` | Odoo | `apps/odoo/config/` 引用的环境 |
 | `integration.env.example` | Integration Layer | `apps/integration/.env` |
 
