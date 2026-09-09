@@ -1,0 +1,15 @@
+{
+  "namespace": "DEMO",
+  "domain": "example.test",
+  "schema_version": 1,
+  "brands": [
+    {
+      "id": "BRAND-001",
+      "name": "Demo Brand A",
+      "slug": "demo-brand-a",
+      "woo_product_cat_slug": "demo-brand-a",
+      "products": ["DEMO-SKU-001", "DEMO-SKU-002"]
+    }
+  ],
+  "note": "品牌在 Woo 中以商品分类(Demo Brand A)建模；在 Odoo 中作为产品上的品牌信息记录。详见 docs/测试数据说明.md。"
+}

@@ -1,0 +1,24 @@
+{
+  "namespace": "DEMO",
+  "domain": "example.test",
+  "schema_version": 1,
+  "retailers": [
+    {
+      "id": "RTL-001",
+      "username": "retailer_approved",
+      "email": "retailer_approved@example.test",
+      "status": "approved",
+      "woo_role": "customer",
+      "odoo_partner_ref": "DEMO-RTL-001"
+    },
+    {
+      "id": "RTL-002",
+      "username": "retailer_pending",
+      "email": "retailer_pending@example.test",
+      "status": "pending",
+      "woo_role": "customer",
+      "odoo_partner_ref": "DEMO-RTL-002"
+    }
+  ],
+  "note": "密码不写入仓库：Woo 顾客账号由 apps/woo/docker/provision.sh 从 .env(WOO_RETAILER_*) 幂等创建；Odoo 侧 partner 由 apps/odoo/config/provision/provision_odoo.py 幂等创建。详见 docs/测试数据说明.md。"
+}

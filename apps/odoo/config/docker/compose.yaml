@@ -1,0 +1,66 @@
+# apps/odoo/config/docker/compose.yaml
+# Odoo 19.0 (CE) + PostgreSQL 16 本地基础环境（阶段 0 ISSUE-0004，config 维护）。
+#
+# 版本锁定（docs/版本清单.md + ISSUE-0004 落地冻结）：
+#   - odoo:19.0     = Odoo CE 19.0 (20260908)  digest sha256:d5a78a8c11bb4f04b0adfcfab8619ed0d59ffaccba647d81554b8cbf5c47e6b9
+#   - postgres:16   = PostgreSQL 16.15         digest sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+# 禁止改为 latest / 未锁 tag。
+#
+# 使用：先把 infra/env/odoo.env.example 复制为同目录 .env 并填值，然后：
+#   1) 启动数据库 + 初始化 DB 并安装 sale/stock（一次性）：
+#        docker compose run --rm -T odoo odoo -d $ODOO_DB_NAME -i sale,stock --without-demo=all --stop-after-init
+#   2) 启动 Odoo 服务：
+#        docker compose up -d
+#   3) 幂等配置（公司/用户/客户/供应商/产品 SKU/初始库存）与验收脚本：
+#        docker compose exec -T odoo sh -c 'odoo shell --no-http --db_host=db --db_port=5432 \
+#            --db_user="$ODOO_DB_USER" --db_password="$ODOO_DB_PASSWORD" --database="$ODOO_DB_NAME" \
+#            < /opt/odoo-provision/provision_odoo.py'
+#   推荐直接使用 provision/run.ps1（Windows）或 provision/run.sh（Linux/macOS）。
+
+name: shopstore_odoo
+
+services:
+  db:
+    image: postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${ODOO_DB_USER:-odoo}
+      POSTGRES_PASSWORD: ${ODOO_DB_PASSWORD:?请在 .env 中设置 ODOO_DB_PASSWORD}
+      POSTGRES_DB: ${ODOO_DB_NAME:-shopstore_odoo}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ODOO_DB_USER:-odoo} -d ${ODOO_DB_NAME:-shopstore_odoo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  odoo:
+    image: odoo:19.0@sha256:d5a78a8c11bb4f04b0adfcfab8619ed0d59ffaccba647d81554b8cbf5c47e6b9
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${ODOO_HTTP_PORT:-8069}:8069"
+    environment:
+      HOST: db
+      PORT: "5432"
+      USER: ${ODOO_DB_USER:-odoo}
+      PASSWORD: ${ODOO_DB_PASSWORD:?请在 .env 中设置 ODOO_DB_PASSWORD}
+      ODOO_DB_NAME: ${ODOO_DB_NAME:-shopstore_odoo}
+      ODOO_DB_USER: ${ODOO_DB_USER:-odoo}
+      ODOO_DB_PASSWORD: ${ODOO_DB_PASSWORD:?请在 .env 中设置 ODOO_DB_PASSWORD}
+      ODOO_ADMIN_PASSWD: ${ODOO_ADMIN_PASSWD:-change_me}
+      ODOO_TEST_USER_PASSWORD: ${ODOO_TEST_USER_PASSWORD:-change_me}
+    volumes:
+      - odoo-data:/var/lib/odoo
+      # 未来 marketplace_connector 自定义模块（dev 维护），只读挂载
+      - ../../addons:/mnt/extra-addons:ro
+      # ISSUE-0004 幂等配置/验收脚本（config 维护），只读挂载供容器内 odoo shell 执行
+      - ../provision:/opt/odoo-provision:ro
+
+volumes:
+  pgdata:
+  odoo-data:
