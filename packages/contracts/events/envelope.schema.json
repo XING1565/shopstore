@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopstore.local/contracts/events/envelope.schema.json",
+  "title": "DomainEventEnvelope",
+  "description": "领域事件信封。Core 发布领域事件，Integration 消费并转换为 Woo / Odoo 调用；外部系统状态回传也以事件进入 Core。event_type 命名规则：{domain}.{entity}.{past_tense_verb}。",
+  "type": "object",
+  "required": ["event_id", "event_type", "event_version", "source", "occurred_at", "trace_id", "data"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "事件唯一 ID（UUID v4）。"
+    },
+    "event_type": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+(\\.[a-z0-9-]+){2}$",
+      "description": "事件类型，如 catalog.product.published、commerce.order.created、commerce.order.status_changed。",
+      "examples": ["catalog.product.published", "commerce.order.created"]
+    },
+    "event_version": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "事件结构版本号（正整数）。结构不兼容变更时递增。",
+      "examples": ["1"]
+    },
+    "source": {
+      "type": "string",
+      "enum": ["core", "integration", "woo", "odoo"],
+      "description": "事件来源系统。"
+    },
+    "occurred_at": {
+      "$ref": "../schemas/timestamp.schema.json",
+      "description": "事件发生时间（UTC）。"
+    },
+    "trace_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "端到端追踪 ID，跨系统同一次业务流转保持一致。"
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "触发本次事件的请求追踪 ID（对应 X-Request-Id）。"
+    },
+    "data": {
+      "type": "object",
+      "description": "领域事件负载，形状由具体事件类型约定（阶段一以 schema 细化）。"
+    }
+  }
+}

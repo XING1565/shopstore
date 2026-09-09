@@ -1,0 +1,196 @@
+openapi: 3.1.0
+info:
+  title: ShopVidi Marketplace Core API
+  version: 1.0.0
+  description: |
+    Marketplace Core 服务 HTTP 契约（阶段 0 骨架）。
+
+    版本策略：URL 路径版本化，破坏性变更进入新主版本（/api/v2/...），
+    向后兼容的新增（新字段、新端点）不升主版本。详见 conventions.md。
+
+    统一约定：
+    - 请求追踪头 `X-Request-Id`（UUID v4）。
+    - 幂等键头 `Idempotency-Key`。
+    - 所有响应 JSON，时间 RFC 3339 UTC，金额用 amount_minor（见 schemas/）。
+  contact:
+    name: ShopVidi rebuild
+servers:
+  - url: http://localhost:8080
+    description: 本地开发
+tags:
+  - name: health
+    description: 存活与就绪检查
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: 服务存活检查
+      operationId: getHealth
+      responses:
+        "200":
+          description: 服务存活
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /ready:
+    get:
+      tags: [health]
+      summary: 依赖就绪检查
+      operationId: getReady
+      responses:
+        "200":
+          description: 依赖就绪
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /api/v1/health:
+    get:
+      tags: [health]
+      summary: 版本化健康检查
+      operationId: getHealthV1
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: 服务存活
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, down]
+          description: 整体状态。
+        checks:
+          type: object
+          description: 各依赖检查项，键为依赖名。
+          additionalProperties:
+            type: object
+            required: [status]
+            additionalProperties: false
+            properties:
+              status:
+                type: string
+                enum: [ok, degraded, down]
+              latency_ms:
+                type: integer
+                description: 检查耗时（毫秒，可选）。
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              description: 机器可读错误码，如 validation_error、not_found、conflict、upstream_timeout。
+            message:
+              type: string
+              description: 人类可读错误描述。
+            details:
+              type: array
+              items:
+                type: object
+                required: [field, reason]
+                additionalProperties: false
+                properties:
+                  field:
+                    type: string
+                  reason:
+                    type: string
+            request_id:
+              type: string
+              format: uuid
+              description: 与 X-Request-Id 一致的请求追踪 ID。
+  headers:
+    XRequestId:
+      description: 请求追踪 ID（UUID v4），由调用方生成，服务端记录并在响应回显。
+      schema:
+        type: string
+        format: uuid
+      example: "3f2a1c4e-8b7d-4a9f-9c2e-1d0f3a5b6c7d"
+    IdempotencyKey:
+      description: 幂等键，命名规则见 conventions.md。
+      schema:
+        type: string
+        maxLength: 255
+      example: "core.order.export.1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
+  parameters:
+    XRequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      description: 请求追踪 ID。缺失时服务端生成并在响应头回显。
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: 幂等键。写操作（POST/PUT/PATCH）建议携带；同名同负载安全重试，同名不同负载返回 409。
+      schema:
+        type: string
+        maxLength: 255
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: 分页大小，默认 20，最大 100。
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Offset:
+      name: offset
+      in: query
+      required: false
+      description: 分页偏移，从 0 开始。
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+  responses:
+    BadRequest:
+      description: 请求不合法
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Conflict:
+      description: 幂等冲突或状态冲突
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    ServiceUnavailable:
+      description: 依赖未就绪
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopstore.local/contracts/schemas/product.schema.json",
+  "title": "CoreProduct",
+  "description": "Core Product 是商品业务主实体（阶段 0 骨架，业务字段在后续阶段细化）。sku 与 external_ids 是跨系统关联的关键结构。",
+  "type": "object",
+  "required": ["product_id", "sku", "name", "external_ids", "created_at", "updated_at"],
+  "additionalProperties": false,
+  "properties": {
+    "product_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Core 自生成商品主键（UUID v4）。"
+    },
+    "sku": {
+      "$ref": "external-ids.schema.json#/$defs/Sku"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "brand_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "所属品牌（阶段一引入）。"
+    },
+    "price": {
+      "$ref": "money.schema.json",
+      "description": "批发价（阶段一引入）。"
+    },
+    "moq": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "最小起订量 MOQ（阶段一引入）。"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "published", "archived"],
+      "description": "商品发布状态（阶段一细化）。"
+    },
+    "external_ids": {
+      "$ref": "external-ids.schema.json#/$defs/ProductExternalIds"
+    },
+    "created_at": {
+      "$ref": "timestamp.schema.json"
+    },
+    "updated_at": {
+      "$ref": "timestamp.schema.json"
+    }
+  },
+  "examples": [
+    {
+      "product_id": "9f0e2a1c-7b3d-4c5e-8f6a-2d1e0b3a4c5d",
+      "sku": "DEMO-SKU-001",
+      "name": "Demo Product",
+      "external_ids": {
+        "woo_product_id": 1234,
+        "odoo_product_id": 567
+      },
+      "created_at": "2026-09-09T03:36:27Z",
+      "updated_at": "2026-09-09T03:36:27Z"
+    }
+  ]
+}

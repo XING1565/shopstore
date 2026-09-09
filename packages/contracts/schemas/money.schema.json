@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopstore.local/contracts/schemas/money.schema.json",
+  "title": "Money",
+  "description": "统一金额格式。金额一律用货币最小单位整数表示（amount_minor），禁止在 JSON 中使用浮点数。货币代码为 ISO 4217 三位大写字母。",
+  "type": "object",
+  "required": ["amount_minor", "currency"],
+  "additionalProperties": false,
+  "properties": {
+    "amount_minor": {
+      "type": "integer",
+      "description": "带符号整数，以货币最小单位计（如美元为分）。示例：129900 表示 1299.00。"
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "ISO 4217 三位大写货币代码，例如 USD、EUR、CNY。"
+    }
+  },
+  "examples": [
+    { "amount_minor": 129900, "currency": "USD" },
+    { "amount_minor": -250, "currency": "EUR" }
+  ]
+}

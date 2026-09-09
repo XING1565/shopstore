@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopstore.local/contracts/schemas/error.schema.json",
+  "title": "ErrorEnvelope",
+  "description": "统一错误响应格式。所有非 2xx 响应体必须遵循此结构，code 为机器可读错误码，request_id 用于关联请求追踪。",
+  "type": "object",
+  "required": ["error"],
+  "additionalProperties": false,
+  "properties": {
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "机器可读错误码，例如 validation_error、not_found、conflict、upstream_timeout。"
+        },
+        "message": {
+          "type": "string",
+          "description": "人类可读错误描述，不泄露敏感信息。"
+        },
+        "details": {
+          "type": "array",
+          "description": "字段级校验错误（可选）。",
+          "items": {
+            "type": "object",
+            "required": ["field", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "field": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "request_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "与 X-Request-Id 一致的请求追踪 ID。"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "error": {
+        "code": "validation_error",
+        "message": "请求参数不合法",
+        "details": [
+          { "field": "lines[0].quantity", "reason": "低于 MOQ 10" }
+        ],
+        "request_id": "3f2a1c4e-8b7d-4a9f-9c2e-1d0f3a5b6c7d"
+      }
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopstore.local/contracts/schemas/order.schema.json",
+  "title": "MarketplaceOrder",
+  "description": "Marketplace Order 是订单业务主实体（阶段 0 骨架）。external_ids 保存 Woo / Odoo 的关联 ID。状态枚举与 PRD 第 6 节一致（snake_case 化）。",
+  "type": "object",
+  "required": ["marketplace_order_id", "status", "external_ids", "created_at", "updated_at"],
+  "additionalProperties": false,
+  "properties": {
+    "marketplace_order_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Core 自生成订单主键（UUID v4）。"
+    },
+    "retailer_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "下单买家（阶段一引入）。"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "sent_to_odoo",
+        "odoo_confirmed",
+        "inventory_reserved",
+        "picking_ready",
+        "shipped",
+        "completed",
+        "cancelled",
+        "sync_failed"
+      ],
+      "description": "订单状态（对应 PRD：Draft/Submitted/SentToOdoo/OdooConfirmed/InventoryReserved/PickingReady/Shipped/Completed/Cancelled/SyncFailed）。"
+    },
+    "lines": {
+      "type": "array",
+      "description": "订单行（阶段一细化）。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sku": { "$ref": "external-ids.schema.json#/$defs/Sku" },
+          "quantity": { "type": "integer", "minimum": 1 },
+          "unit_price": { "$ref": "money.schema.json" }
+        }
+      }
+    },
+    "total": {
+      "$ref": "money.schema.json",
+      "description": "订单总金额（阶段一引入）。"
+    },
+    "external_ids": {
+      "$ref": "external-ids.schema.json#/$defs/OrderExternalIds"
+    },
+    "created_at": {
+      "$ref": "timestamp.schema.json"
+    },
+    "updated_at": {
+      "$ref": "timestamp.schema.json"
+    }
+  },
+  "examples": [
+    {
+      "marketplace_order_id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+      "status": "submitted",
+      "external_ids": {
+        "woo_order_id": 789,
+        "odoo_sale_order_id": 1011,
+        "odoo_delivery_id": 1213
+      },
+      "created_at": "2026-09-09T03:36:27Z",
+      "updated_at": "2026-09-09T03:36:27Z"
+    }
+  ]
+}

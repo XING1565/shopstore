@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopstore.local/contracts/schemas/external-ids.schema.json",
+  "title": "ExternalIds",
+  "description": "外部系统 ID 映射结构。Core 保存所有跨系统关联 ID。字段缺失（不在 JSON 中）表示该投影尚未创建，而非 null。Woo 与 Odoo 使用整数 ID；Core 自生成 ID 使用 UUID v4。",
+  "$defs": {
+    "Sku": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z0-9][A-Z0-9-]{1,62}[A-Z0-9]$",
+      "description": "SKU 规则：大写字母、数字、连字符；首尾必须为字母或数字；长度 3-64；在 Core、Woo、Odoo 三系统间保持唯一且不可变，是稳定业务关联键。示例：DEMO-SKU-001。"
+    },
+    "ProductExternalIds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "woo_product_id": {
+          "type": "integer",
+          "description": "WooCommerce 商品投影 ID。Core Product -> Woo Product 映射。"
+        },
+        "odoo_product_id": {
+          "type": "integer",
+          "description": "Odoo 产品投影 ID。Core Product -> Odoo Product 映射。"
+        }
+      }
+    },
+    "OrderExternalIds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "woo_order_id": {
+          "type": "integer",
+          "description": "WooCommerce 订单投影 ID。Marketplace Order -> Woo Order 映射。"
+        },
+        "odoo_sale_order_id": {
+          "type": "integer",
+          "description": "Odoo 销售单 ID。Marketplace Order -> Odoo Sale Order 映射。"
+        },
+        "odoo_delivery_id": {
+          "type": "integer",
+          "description": "Odoo 交货单 ID。Marketplace Order -> Odoo Delivery 映射。"
+        }
+      }
+    }
+  }
+}
