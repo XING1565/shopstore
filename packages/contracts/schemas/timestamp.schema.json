@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopstore.local/contracts/schemas/timestamp.schema.json",
+  "title": "Timestamp",
+  "description": "统一时间格式：RFC 3339 / ISO 8601，一律使用 UTC，以 Z 结尾，不允许时区偏移。推荐毫秒精度。字段命名使用 *_at 后缀（如 created_at、updated_at）。",
+  "type": "string",
+  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$",
+  "examples": [
+    "2026-09-09T03:36:27Z",
+    "2026-09-09T03:36:27.050Z"
+  ]
+}
