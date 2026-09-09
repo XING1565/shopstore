@@ -1,0 +1,33 @@
+# apps/odoo/config/odoo.conf.example
+# Odoo Server 配置模板（config 维护，ISSUE-0004）。
+#
+# 约定：
+# - 本文件只作模板；真实 odoo.conf 由本地启动流程从环境变量渲染，且已被 .gitignore 忽略。
+# - Docker compose 环境直接使用官方镜像内置 /etc/odoo/odoo.conf（addons_path=/mnt/extra-addons）
+#   + 容器环境变量，通常不需要本文件。
+# - 本模板面向“不经 compose、直接以本机进程运行 Odoo”的调试场景；复制为 ./odoo.conf 并填值。
+
+[options]
+addons_path = /etc/odoo/addons,/var/lib/odoo/addons,/mnt/extra-addons
+data_dir = /var/lib/odoo
+
+# database manager 主密码（不写死，使用前替换）
+admin_passwd = change_me_in_env_file
+
+# PostgreSQL
+db_host = 127.0.0.1
+db_port = 5432
+db_user = odoo
+db_password = change_me_in_env_file
+db_name = shopstore_odoo
+
+# 本地开发允许列出数据库，便于 web 端切换；生产/共享环境建议关闭
+list_db = True
+
+# 日志
+log_level = info
+
+# RPC / Longpolling
+xmlrpc = True
+xmlrpc_port = 8069
+longpolling_port = 8072
