@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # Phase-0 WordPress + WooCommerce runtime image (config / ISSUE-0003).
 # Base tag comes from apps/woo/.env WORDPRESS_VERSION via compose build args
 # (see apps/woo/compose.yaml). Version freeze: docs/版本清单.md (ISSUE-0002).
@@ -9,9 +8,11 @@ ARG WOOCOMMERCE_VERSION=10.8.0
 ENV WOOCOMMERCE_VERSION=${WOOCOMMERCE_VERSION}
 
 # wp-cli: used by provisioning and available for day-2 debugging.
+# default-mysql-client: provides mysqlcheck, required by `wp db check`, the
+# first gate in provision.sh (CESH-29 smoke FAIL: mysqlcheck missing).
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends curl less; \
+    apt-get install -y --no-install-recommends curl less default-mysql-client; \
     a2enmod rewrite expires; \
     curl -fsSL -o /usr/local/bin/wp \
       https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar; \
