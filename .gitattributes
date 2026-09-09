@@ -1,0 +1,5 @@
+# Line endings: repo canonical form is LF (see .editorconfig). Force LF on
+# checkout even when core.autocrlf is enabled, so container entrypoint /
+# provision scripts (COPYed into images and executed with a /bin/sh shebang)
+# never arrive CRLF-mangled.
+*.sh text eol=lf

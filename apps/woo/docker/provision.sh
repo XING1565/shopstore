@@ -34,9 +34,12 @@ fail() { echo "[woo-provision] ERROR: $*" >&2; exit 1; }
 cd /var/www/html
 
 # Wait for MySQL (defensive: compose already waits for db healthcheck).
+# mysql:8.0 ships auto-generated self-signed TLS certs; the mariadb-client
+# (default-mysql-client) verifies them by default and would fail the check, so
+# pass --ssl-verify-server-cert=0 to mysqlcheck (local trusted network only).
 db_ready=0
 for _ in $(seq 1 60); do
-  if "${WP[@]}" db check >/dev/null 2>&1; then
+  if "${WP[@]}" db check --ssl-verify-server-cert=0 >/dev/null 2>&1; then
     db_ready=1
     break
   fi
