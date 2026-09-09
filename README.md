@@ -51,6 +51,11 @@ bash infra/scripts/shopstore.sh status
 `test-smoke`）与备份/恢复、staging 启动说明见 `infra/scripts/README.md`、
 `infra/RESTORE.md`、`infra/STAGING.md`。
 
+## 阶段 0 状态
+
+阶段 0（项目基座建设）的完成情况、子任务依赖关系、已知问题与下一阶段入口，
+见 [`docs/阶段0完成情况.md`](docs/阶段0完成情况.md)。
+
 ## 最终目录映射说明
 
 仓库在进入阶段 0 前已存在 `docs/`（`PRD.md`、`架构方案.md`、`阶段性开发方案.md`、
@@ -94,3 +99,4 @@ bash infra/scripts/shopstore.sh status
 - 本地开发说明：`docs/本地开发说明.md`
 - 环境变量模板：`infra/env/`
 - 版本清单：`docs/版本清单.md`（阶段 0 ISSUE-0002 产出）
+- 阶段 0 完成情况 / 已知问题 / 下一阶段：`docs/阶段0完成情况.md`
