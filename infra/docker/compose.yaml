@@ -1,0 +1,76 @@
+# infra/docker/compose.yaml — ops-owned orchestration (ISSUE-0010).
+#
+# Covers the Marketplace Core service (core-db + core) and the Integration Layer
+# test runner. Woo and Odoo keep their own config-owned compose files
+# (apps/woo/compose.yaml, apps/odoo/config/docker/compose.yaml); the one-click
+# scripts in infra/scripts orchestrate all four stacks.
+#
+# Env interpolation reads apps/core/.env (passed via `--env-file` by the scripts).
+# No `latest` tags: the postgres image digest matches the Odoo stack
+# (apps/odoo/config/docker/compose.yaml; docs/版本清单.md ISSUE-0002/0004).
+
+name: shopstore-core
+
+services:
+  core-db:
+    image: postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-core}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in apps/core/.env}
+      POSTGRES_DB: ${DB_DATABASE:-shopstore_core}
+    volumes:
+      - core-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-core} -d ${DB_DATABASE:-shopstore_core}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  core:
+    build:
+      context: ../..
+      dockerfile: infra/docker/core.Dockerfile
+    image: shopstore-core:local
+    restart: unless-stopped
+    depends_on:
+      core-db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8000}:${APP_PORT:-8000}"
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_HOST: 0.0.0.0
+      APP_PORT: ${APP_PORT:-8000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DB_CONNECTION: postgresql
+      DB_HOST: core-db
+      DB_PORT: "5432"
+      DB_DATABASE: ${DB_DATABASE:-shopstore_core}
+      DB_USERNAME: ${DB_USERNAME:-core}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in apps/core/.env}
+      WOO_BASE_URL: ${WOO_BASE_URL:-http://localhost:8080}
+      ODOO_BASE_URL: ${ODOO_BASE_URL:-http://localhost:8069}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,os;urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('APP_PORT','8000')+'/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # One-shot runner for the Integration Layer test suite (stage 0 has no
+  # long-running integration service). Only started on demand via `--profile tests`.
+  integration-tests:
+    profiles: ["tests"]
+    build:
+      context: ../..
+      dockerfile: infra/docker/integration.Dockerfile
+    image: shopstore-integration:local
+    environment:
+      APP_ENV: test
+    command: ["pytest", "-q"]
+
+volumes:
+  core-pgdata:

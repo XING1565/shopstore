@@ -1,0 +1,14 @@
+# Docker build context filters (ops / ISSUE-0010).
+# Keeps secrets and local state out of image build contexts. The Dockerfiles in
+# infra/docker COPY only apps/core and apps/integration; everything else is noise.
+
+.git/
+.gitignore
+**/.env
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+backups/
+infra/backups/
+*.log
