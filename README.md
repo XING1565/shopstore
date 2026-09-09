@@ -30,6 +30,27 @@ shopstore/
     e2e/                 端到端测试
 ```
 
+## 快速开始（一键启动）
+
+阶段 0 一键编排（ops / ISSUE-0010）已就绪，覆盖 WooCommerce、Odoo、Marketplace Core、
+Integration Layer 四个环境：
+
+```powershell
+# Windows（PowerShell 5.1+）
+.\infra\scripts\shopstore.ps1 init      # 首次：生成 .env、构建并启动全部栈、执行迁移
+.\infra\scripts\shopstore.ps1 status    # 状态与健康检查
+```
+
+```bash
+# Linux / macOS / Git Bash
+bash infra/scripts/shopstore.sh init
+bash infra/scripts/shopstore.sh status
+```
+
+完整命令（`start` / `stop` / `status` / `logs` / `init` / `seed` / `backup` / `restore` /
+`test-smoke`）与备份/恢复、staging 启动说明见 `infra/scripts/README.md`、
+`infra/RESTORE.md`、`infra/STAGING.md`。
+
 ## 最终目录映射说明
 
 仓库在进入阶段 0 前已存在 `docs/`（`PRD.md`、`架构方案.md`、`阶段性开发方案.md`、

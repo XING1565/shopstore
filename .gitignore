@@ -25,6 +25,7 @@ odoo.conf
 data/
 filestore/
 uploads/
+backups/
 !**/.gitkeep
 
 # ---------- WordPress / WooCommerce 运行时产物 ----------
