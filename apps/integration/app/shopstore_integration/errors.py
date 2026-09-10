@@ -92,3 +92,13 @@ class UpstreamError(IntegrationError):
 
     code = "upstream_error"
     http_status = 502
+
+
+# 可安全重试的错误类别：超时 / 连接失败 / 上游瞬时错误（网络抖动不丢单）。
+_RETRYABLE_CODES = {"upstream_timeout", "upstream_unavailable", "upstream_error"}
+
+
+def is_retryable(error: BaseException) -> bool:
+    """判断错误是否可重试（用于同步任务重试 / 死信判定）。"""
+    code = getattr(error, "code", None)
+    return code in _RETRYABLE_CODES

@@ -22,7 +22,7 @@ from .commands import export_order_command, new_request_id
 from .core_client import CoreClient
 from .idempotency import IdempotencyStore
 from .logging import IntegrationLogger, get_logger
-from .tasks.base import TaskResult
+from .tasks.base import TaskResult, TaskStatus
 from .tasks.dispatch import TaskDispatcher
 from .tasks.export_order import ExportOrderTask
 
@@ -125,6 +125,20 @@ class OrderExportWorker:
             return
 
         result: TaskResult = self._dispatcher.dispatch(command)
+        if result.status == TaskStatus.DEFERRED:
+            self.logger.info(
+                "order export deferred (backoff); leaving event pending",
+                marketplace_order_id=marketplace_order_id,
+                trace_id=trace_id,
+            )
+            return
+        if result.status == TaskStatus.DEAD:
+            self.logger.error(
+                "order export dead-lettered; manual retry required",
+                marketplace_order_id=marketplace_order_id,
+                trace_id=trace_id,
+            )
+            return
         if not result.ok:
             self.logger.error(
                 "order export failed; leaving event pending for retry",
