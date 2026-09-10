@@ -116,19 +116,28 @@ def test_worker_retries_writeback_without_recreating(sync_jobs_store) -> None:
     assert core.acked == ["ev-1"]
 
 
-def test_worker_leaves_event_pending_on_odoo_failure(sync_jobs_store) -> None:
+def test_worker_leaves_event_pending_on_odoo_failure(clock, clock_store) -> None:
+    # 退避到期前不立即重试；用可控时钟推进退避时间后重试成功。
+    store = clock_store
     core = FakeCore()
     core.retailers["RTL-1"] = {"company_name": "Acme", "email": "buyer@example.test"}
     core.pending.append(_event("ev-1", "ORDER-1", "RTL-1"))
     odoo = MockAdapter(name="odoo", fail_with=UpstreamTimeoutError("odoo timeout"), fail_count=1)
-    worker = OrderExportWorker(core=core, odoo=odoo, idempotency_store=sync_jobs_store)
+    worker = OrderExportWorker(core=core, odoo=odoo, idempotency_store=store)
 
     worker.run_once()
 
     assert core.acked == []
     assert core.writebacks == []
 
-    # 重试成功后正常写回 + ack。
+    # 退避尚未到期：立即重跑被推迟，不写回、不 ack、不重复创建销售单。
     worker.run_once()
-    assert ("ORDER-1", 1) in core.writebacks
+    assert core.writebacks == []
+    assert core.acked == []
+    assert _create_sale_order_calls(odoo) == 1
+
+    # 退避到期后重试成功：写回 + ack，且不重复创建销售单。
+    clock.advance(2.0)
+    worker.run_once()
+    assert core.writebacks == [("ORDER-1", 1)]
     assert core.acked == ["ev-1"]

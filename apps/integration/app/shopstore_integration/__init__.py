@@ -25,6 +25,7 @@ from .errors import (
     UpstreamTimeoutError,
 )
 from .http_client import UnifiedHttpClient
+from .retry import RetryWorker
 from .sync_jobs import SyncJob, SyncJobsStore
 
 __all__ = [
@@ -42,6 +43,7 @@ __all__ = [
     "UnifiedHttpClient",
     "SyncJob",
     "SyncJobsStore",
+    "RetryWorker",
     "config",
     "errors",
     "http_client",

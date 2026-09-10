@@ -6,7 +6,8 @@
 委托给具体 Adapter、错误分类与日志；子类只需实现 :meth:`SyncTask.handle`，
 描述「收到命令后要做什么」，无需关心幂等与错误捕获。
 
-阶段 0 不实现正式订单同步，但通过 Mock Adapter 验证完整链路与幂等语义。
+阶段 1 使用 :class:`RetryableIdempotencyStore`（数据库 ``sync_jobs`` 表）时，
+失败不再静默释放预留，而是记录失败并按退避排期重试 / 进入死信（ISSUE-0109）。
 """
 
 from __future__ import annotations
@@ -17,7 +18,11 @@ from typing import Any, Optional
 
 from ..commands import Command
 from ..errors import IntegrationError
-from ..idempotency import IdempotencyStore, hash_payload
+from ..idempotency import (
+    IdempotencyStore,
+    RetryableIdempotencyStore,
+    hash_payload,
+)
 from ..logging import IntegrationLogger, get_logger
 
 
@@ -26,6 +31,8 @@ class TaskStatus:
     SUCCESS = "success"
     FAILED = "failed"
     SKIPPED = "skipped"
+    DEFERRED = "deferred"
+    DEAD = "dead"
 
 
 @dataclass(frozen=True)
@@ -59,10 +66,27 @@ class SyncTask(ABC):
         self.idempotency_store = idempotency_store
         self.logger = logger or get_logger("shopstore_integration.tasks")
 
+    def _begin(self, command: Command, key: str, payload_hash: str):
+        if isinstance(self.idempotency_store, RetryableIdempotencyStore):
+            return self.idempotency_store.begin(
+                key,
+                payload_hash,
+                command_type=command.command_type,
+                payload=command.payload,
+                trace_id=command.trace_id,
+            )
+        return self.idempotency_store.begin(key, payload_hash)
+
+    def _record_failure(self, key: str, error: IntegrationError) -> None:
+        if isinstance(self.idempotency_store, RetryableIdempotencyStore):
+            self.idempotency_store.mark_failed(key, error)
+        else:
+            self.idempotency_store.abort(key)
+
     def execute(self, command: Command) -> TaskResult:
         """执行命令：先幂等检查，再委托 :meth:`handle`，统一捕获错误。"""
         key = command.idempotency_key_value
-        record = self.idempotency_store.begin(key, hash_payload(command.payload))
+        record = self._begin(command, key, hash_payload(command.payload))
 
         if record.status == "completed":
             self.logger.info(
@@ -80,6 +104,38 @@ class SyncTask(ABC):
                 external_ids=record.result or {},
             )
 
+        if record.status == "dead":
+            self.logger.error(
+                "sync task dead-lettered; manual retry required",
+                command_type=command.command_type,
+                idempotency_key=key,
+                trace_id=command.trace_id,
+            )
+            return TaskResult(
+                status=TaskStatus.DEAD,
+                command_type=command.command_type,
+                idempotency_key=key,
+                trace_id=command.trace_id,
+                request_id=command.request_id,
+            )
+
+        if record.status in ("deferred", "running"):
+            reason = "backoff not elapsed" if record.status == "deferred" else "already in progress"
+            self.logger.info(
+                "sync task deferred",
+                command_type=command.command_type,
+                idempotency_key=key,
+                trace_id=command.trace_id,
+                reason=reason,
+            )
+            return TaskResult(
+                status=TaskStatus.DEFERRED,
+                command_type=command.command_type,
+                idempotency_key=key,
+                trace_id=command.trace_id,
+                request_id=command.request_id,
+            )
+
         self.logger.info(
             "sync task started",
             command_type=command.command_type,
@@ -90,7 +146,7 @@ class SyncTask(ABC):
         try:
             external_ids = self.handle(command)
         except IntegrationError as exc:
-            self.idempotency_store.abort(key)
+            self._record_failure(key, exc)
             self.logger.error(
                 "sync task failed",
                 command_type=command.command_type,

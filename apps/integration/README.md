@@ -62,6 +62,35 @@ Core commerce.order.created 事件
 同一订单重复触发由三层去重（Core 映射检查、`sync_jobs` 幂等键、Odoo
 `client_order_ref` 查找）保证不重复创建销售单。
 
+## 阶段 1 已交付（ISSUE-0109：同步失败、幂等与人工重试）
+
+`sync_jobs` 任务表在幂等键之上扩展重试 / 退避 / 死信字段，形成完整的同步任务生命周期：
+
+```text
+running（执行中）
+  -> completed（成功，幂等）
+  -> failed（失败，按指数退避排期 next_retry_at）
+       -> running（退避到期，重试）
+       -> dead（重试耗尽或不可重试错误，死信，待人工重试）
+```
+
+| 模块 | 职责 |
+| --- | --- |
+| `sync_jobs.py` | `SyncJob` 重试/死信字段（`attempts` / `max_attempts` / `next_retry_at` / `last_error` / `command_type` / `payload`）+ `SyncJobsStore.mark_failed` / `retry` / `list_jobs` / `get` |
+| `retry.py` | `RetryWorker`：拉取到期失败作业重建命令重新分派；`retry_job` 人工重试 |
+| `cli.py` | 后台运维 CLI（`python -m shopstore_integration list` / `retry` / `retry-dead`）：失败可见 + 人工重试 |
+
+关键语义：
+
+- 可重试错误（超时 / 连接失败 / 上游瞬时错误）按指数退避排期重试，网络抖动不丢单；
+- 不可重试错误（校验 / 鉴权 / 冲突）直接死信；可重试错误在达到 `max_attempts` 后死信；
+- 失败记录 `last_error` 持久化，后台可见（`list_jobs` / CLI `list`）；
+- 人工重试 `retry(key)` 把失败 / 死信任务重新置为立即到期并重置重试预算；
+- 重试命中幂等键去重，不会重复创建 Odoo 销售单。
+
+退避参数由 `RetryConfig`（`SYNC_RETRY_MAX` / `SYNC_RETRY_BACKOFF_SECONDS` /
+`SYNC_RETRY_BACKOFF_FACTOR`）控制，见 `config.py`。
+
 ## 契约对齐
 
 接口边界遵循 `packages/contracts/`（ISSUE-0007）：

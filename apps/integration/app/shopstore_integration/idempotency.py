@@ -95,6 +95,33 @@ class IdempotencyStore(Protocol):
         ...
 
 
+@runtime_checkable
+class RetryableIdempotencyStore(IdempotencyStore, Protocol):
+    """扩展了失败记录（重试 / 退避 / 死信）的幂等存储接口（ISSUE-0109）。
+
+    ``begin`` 额外接受 ``command_type`` / ``payload`` / ``trace_id`` 以便在
+    重试时重建命令；:meth:`mark_failed` 记录失败并按退避排期重试或进入死信。
+    """
+
+    def begin(
+        self,
+        key: str,
+        payload_hash: str,
+        *,
+        command_type: Optional[str] = None,
+        payload: Optional[dict[str, Any]] = None,
+        trace_id: Optional[str] = None,
+        max_attempts: Optional[int] = None,
+        now: Any = None,
+    ) -> IdempotencyRecord:
+        """预留幂等键（记录命令信息）；返回 new/running/completed/deferred/dead。"""
+        ...
+
+    def mark_failed(self, key: str, error: BaseException, *, now: Any = None) -> str:
+        """记录失败，返回新状态（``failed`` 或 ``dead``）。"""
+        ...
+
+
 class InMemoryIdempotencyStore:
     """进程内实现，用于阶段 0 Mock 验证与测试。"""
 
@@ -144,6 +171,7 @@ __all__ = [
     "IdempotencyKey",
     "IdempotencyRecord",
     "IdempotencyStore",
+    "RetryableIdempotencyStore",
     "InMemoryIdempotencyStore",
     "hash_payload",
 ]
