@@ -3,7 +3,7 @@ info:
   title: ShopVidi Marketplace Core API
   version: 1.0.0
   description: |
-    Marketplace Core 服务 HTTP 契约（阶段 0 骨架）。
+    Marketplace Core 服务 HTTP 契约（阶段 1）。
 
     版本策略：URL 路径版本化，破坏性变更进入新主版本（/api/v2/...），
     向后兼容的新增（新字段、新端点）不升主版本。详见 conventions.md。
@@ -12,6 +12,9 @@ info:
     - 请求追踪头 `X-Request-Id`（UUID v4）。
     - 幂等键头 `Idempotency-Key`。
     - 所有响应 JSON，时间 RFC 3339 UTC，金额用 amount_minor（见 schemas/）。
+
+    阶段 1 纳入 Product 资源（创建 / 查询 / 更新 / 发布 / 下架），
+    数据形状以 `schemas/product.schema.json` 为权威（批发价 / MOQ 真相在 Core）。
   contact:
     name: ShopVidi rebuild
 servers:
@@ -20,6 +23,8 @@ servers:
 tags:
   - name: health
     description: 存活与就绪检查
+  - name: products
+    description: 商品（Core 业务主实体，批发价 / MOQ 真相）
 paths:
   /health:
     get:
@@ -64,6 +69,167 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+  /api/v1/products:
+    get:
+      tags: [products]
+      summary: 分页列出商品
+      operationId: listProducts
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: 商品列表
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductList"
+    post:
+      tags: [products]
+      summary: 创建商品草稿（运营 / Admin）
+      description: |
+        在 Core 创建商品，初始状态为 `draft`（不投影到 Woo / Odoo）。
+        批发价与 MOQ 是 Core 真相，创建即写入。发布见 `POST /products/{id}/publish`。
+      operationId: createProduct
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductCreate"
+      responses:
+        "201":
+          description: 创建成功，返回完整商品（status=draft，external_ids 为空）
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/products/{product_id}:
+    parameters:
+      - $ref: "#/components/parameters/ProductId"
+    get:
+      tags: [products]
+      summary: 查询单个商品
+      description: |
+        返回完整商品（含批发价 `wholesale_price` 与 MOQ）。
+        授权语义：未认证买家不可见批发价 / MOQ（由 ISSUE-0103 在 API 层强制）；
+        已认证买家与运营可见。Woo 桥接插件以买家身份调用本接口渲染批发价 / MOQ。
+      operationId: getProduct
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+      responses:
+        "200":
+          description: 商品详情
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [products]
+      summary: 更新商品
+      description: |
+        更新商品名称 / 品牌 / 批发价 / MOQ。SKU 一经发布不可修改。
+        更新后触发 `catalog.product.updated`，Integration 同步 Woo / Odoo 投影。
+      operationId: updateProduct
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: 更新成功
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/products/{product_id}/publish:
+    parameters:
+      - $ref: "#/components/parameters/ProductId"
+    post:
+      tags: [products]
+      summary: 发布商品（draft → published）
+      description: |
+        Core 将商品状态推进为 `published` 并发出 `catalog.product.published` 事件；
+        Integration 消费事件后创建 Woo 投影与 Odoo 投影，并把 `woo_product_id` /
+        `odoo_product_id` 写回 Core。投影为异步：响应返回时 `external_ids` 可能仍为空。
+      operationId: publishProduct
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: 已发布（status=published）
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /api/v1/products/{product_id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/ProductId"
+    post:
+      tags: [products]
+      summary: 下架商品（published → archived）
+      description: |
+        Core 将商品状态推进为 `archived` 并发出 `catalog.product.archived` 事件；
+        Integration 在 Woo 隐藏、在 Odoo 停用对应投影。
+      operationId: archiveProduct
+      parameters:
+        - $ref: "#/components/parameters/XRequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: 已下架（status=archived）
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
   schemas:
     Health:
@@ -89,6 +255,64 @@ components:
               latency_ms:
                 type: integer
                 description: 检查耗时（毫秒，可选）。
+    Product:
+      $ref: "../schemas/product.schema.json"
+    ProductCreate:
+      type: object
+      additionalProperties: false
+      required: [sku, name, brand_id, wholesale_price, moq]
+      properties:
+        sku:
+          $ref: "../schemas/external-ids.schema.json#/$defs/Sku"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        brand_id:
+          type: string
+          format: uuid
+        wholesale_price:
+          $ref: "../schemas/money.schema.json"
+        moq:
+          type: integer
+          minimum: 1
+    ProductUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        brand_id:
+          type: string
+          format: uuid
+        wholesale_price:
+          $ref: "../schemas/money.schema.json"
+        moq:
+          type: integer
+          minimum: 1
+    ProductList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "../schemas/product.schema.json"
+        total:
+          type: integer
+          minimum: 0
+          description: 满足过滤条件的总数。
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        offset:
+          type: integer
+          minimum: 0
     ErrorEnvelope:
       type: object
       required: [error]
@@ -169,6 +393,14 @@ components:
         type: integer
         minimum: 0
         default: 0
+    ProductId:
+      name: product_id
+      in: path
+      required: true
+      description: Core 商品主键（UUID v4）。
+      schema:
+        type: string
+        format: uuid
   responses:
     BadRequest:
       description: 请求不合法

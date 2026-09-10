@@ -63,6 +63,21 @@ JSON 形态：
 - 一次 Odoo 交货单可包含多条销售单（多单合发）时，`odoo_delivery_id` 允许多值；阶段一先按 1:1 处理，多值结构待 ISSUE-0107 细化（`NOT_TESTED`）。
 - 外部 ID 映射由 Integration 写回 Core，Core 领域模块不直接调用 Woo / Odoo API。
 
+### 2.4 Product 三系统投影边界
+
+批发价与 MOQ 的真相只在 Core；Woo 只做展示投影，Odoo 只拥有 SKU 与库存。投影形状见 `schemas/product-projections.schema.json`：
+
+| 系统 | 持有字段 | 明确不持有 |
+| --- | --- | --- |
+| Core（`product.schema.json`） | 批发价 `wholesale_price`、MOQ、SKU、`external_ids` 等全部业务字段 | —（业务主实体） |
+| Woo（`WooProductProjection`） | `sku`、`name`、`description`、`images`、`brand`、展示状态 | 批发价、MOQ（由桥接插件渲染时从 Core 读取） |
+| Odoo（`OdooProductProjection`） | `sku`（→ `default_code`）、`name` | 批发价、MOQ；库存为 Odoo 主权，不回写 Core |
+
+约束：
+
+- Woo 后台不得手改批发价 / MOQ 并覆盖 Core 数据；下单与展示钩子必须回 Core 校验。
+- Odoo 库存数量（qty_available / on-hand）由 Odoo 维护，阶段一不回传、不复制到 Core。
+
 ## 3. SKU 规则
 
 - 格式：大写字母、数字、连字符；首尾必须为字母或数字；长度 3-64。
@@ -151,6 +166,14 @@ odoo.delivery.import.1213                                # 导入 Odoo 交货单
 | Completed | `completed` |
 | Cancelled | `cancelled` |
 | SyncFailed | `sync_failed` |
+
+### 8.3 商品状态（架构方案 / 数据模型）
+
+| 含义 | 枚举值 |
+| --- | --- |
+| 草稿（未投影） | `draft` |
+| 已发布（已投影 Woo / Odoo） | `published` |
+| 已下架 | `archived` |
 
 ## 9. API 变更版本策略
 

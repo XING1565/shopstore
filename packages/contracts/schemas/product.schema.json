@@ -2,9 +2,20 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://shopstore.local/contracts/schemas/product.schema.json",
   "title": "CoreProduct",
-  "description": "Core Product 是商品业务主实体（阶段 0 骨架，业务字段在后续阶段细化）。sku 与 external_ids 是跨系统关联的关键结构。",
+  "description": "Core Product 是商品业务主实体，持有批发价（wholesale_price）与 MOQ 的真相。Woo 只持有展示投影，Odoo 只持有 SKU 与库存，两者均不持有批发价 / MOQ 真相（见 product-projections.schema.json）。external_ids 保存 Woo / Odoo 投影 ID；字段缺失表示该投影尚未创建。",
   "type": "object",
-  "required": ["product_id", "sku", "name", "external_ids", "created_at", "updated_at"],
+  "required": [
+    "product_id",
+    "sku",
+    "name",
+    "brand_id",
+    "wholesale_price",
+    "moq",
+    "status",
+    "external_ids",
+    "created_at",
+    "updated_at"
+  ],
   "additionalProperties": false,
   "properties": {
     "product_id": {
@@ -17,26 +28,28 @@
     },
     "name": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "商品名（Core 真相）。"
     },
     "brand_id": {
       "type": "string",
       "format": "uuid",
-      "description": "所属品牌（阶段一引入）。"
+      "description": "所属品牌（Core 主权）。"
     },
-    "price": {
+    "wholesale_price": {
       "$ref": "money.schema.json",
-      "description": "批发价（阶段一引入）。"
+      "description": "批发价，Core 真相。金额用最小单位整数表示（amount_minor + currency），禁止浮点数。对应数据模型的 wholesale_price_minor / wholesale_price_currency。"
     },
     "moq": {
       "type": "integer",
       "minimum": 1,
-      "description": "最小起订量 MOQ（阶段一引入）。"
+      "description": "最小起订量 MOQ，Core 真相（≥ 1）。"
     },
     "status": {
       "type": "string",
       "enum": ["draft", "published", "archived"],
-      "description": "商品发布状态（阶段一细化）。"
+      "description": "商品发布状态：draft（草稿，未投影）→ published（已发布，已投影到 Woo / Odoo）→ archived（下架）。"
     },
     "external_ids": {
       "$ref": "external-ids.schema.json#/$defs/ProductExternalIds"
@@ -53,6 +66,13 @@
       "product_id": "9f0e2a1c-7b3d-4c5e-8f6a-2d1e0b3a4c5d",
       "sku": "DEMO-SKU-001",
       "name": "Demo Product",
+      "brand_id": "1b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e",
+      "wholesale_price": {
+        "amount_minor": 129900,
+        "currency": "USD"
+      },
+      "moq": 10,
+      "status": "published",
       "external_ids": {
         "woo_product_id": 1234,
         "odoo_product_id": 567

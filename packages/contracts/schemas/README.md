@@ -10,7 +10,8 @@
 | `timestamp.schema.json` | 统一时间格式（RFC 3339，UTC，`Z` 结尾） |
 | `error.schema.json` | 统一错误响应格式（`error.code/message/details/request_id`） |
 | `external-ids.schema.json` | 外部系统 ID 映射结构与 SKU 规则（`$defs`：`Sku`、`ProductExternalIds`、`OrderExternalIds`） |
-| `product.schema.json` | Core Product 骨架（含 `external_ids`） |
+| `product.schema.json` | Core Product 业务主实体（批发价 / MOQ 真相 + `external_ids`） |
+| `product-projections.schema.json` | 三系统投影边界（`$defs`：`WooProductProjection`、`OdooProductProjection`） |
 | `order.schema.json` | Marketplace Order 骨架（含 `external_ids` 与状态枚举） |
 
 ## 使用约定
@@ -23,4 +24,4 @@
 
 ## 与 OpenAPI 的关系
 
-`schemas/` 是领域数据形状的权威来源。`openapi/openapi.yaml` 目前只承载 HTTP 层的健康检查与通用组件（错误、追踪头、分页），后续 ISSUE-0005 / ISSUE-0006 冻结接口时，会把 Product / Order 等资源以 path 形式纳入 OpenAPI，并引用本目录的 schema。
+`schemas/` 是领域数据形状的权威来源。`openapi/openapi.yaml` 承载 HTTP 层契约：阶段 0 已有健康检查与通用组件，阶段 1 已纳入 Product 资源（创建 / 查询 / 更新 / 发布 / 下架），并以 `$ref` 引用本目录的 `product.schema.json`、`money.schema.json`、`external-ids.schema.json`。Order 资源待 ISSUE-0103 相关接口冻结时以 path 形式纳入。

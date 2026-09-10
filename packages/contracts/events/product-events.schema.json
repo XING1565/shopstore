@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopstore.local/contracts/events/product-events.schema.json",
+  "title": "ProductEvents",
+  "description": "商品领域事件负载（envelope.data）。事件信封见 envelope.schema.json；event_type 命名 {domain}.{entity}.{past_tense_verb}，商品领域 domain=catalog。发布事件由 Integration 消费并投影到 Woo / Odoo。",
+  "$defs": {
+    "ProductEventData": {
+      "type": "object",
+      "description": "catalog.product.created / published / updated 的负载：完整商品快照（含批发价与 MOQ 真相），供 Integration 提取各目标系统所需字段。external_ids 在投影创建后由 Integration 写回 Core，事件负载本身可缺省。",
+      "required": [
+        "product_id",
+        "sku",
+        "name",
+        "brand_id",
+        "wholesale_price",
+        "moq",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "product_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "sku": {
+          "$ref": "../schemas/external-ids.schema.json#/$defs/Sku"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "brand_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "wholesale_price": {
+          "$ref": "../schemas/money.schema.json"
+        },
+        "moq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "published", "archived"]
+        },
+        "external_ids": {
+          "$ref": "../schemas/external-ids.schema.json#/$defs/ProductExternalIds"
+        }
+      }
+    },
+    "ProductArchivedData": {
+      "type": "object",
+      "description": "catalog.product.archived 的负载：仅需定位商品，Integration 据此在 Woo 隐藏、在 Odoo 停用。",
+      "required": ["product_id", "sku"],
+      "additionalProperties": false,
+      "properties": {
+        "product_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "sku": {
+          "$ref": "../schemas/external-ids.schema.json#/$defs/Sku"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "product_id": "9f0e2a1c-7b3d-4c5e-8f6a-2d1e0b3a4c5d",
+      "sku": "DEMO-SKU-001",
+      "name": "Demo Product",
+      "brand_id": "1b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e",
+      "wholesale_price": {
+        "amount_minor": 129900,
+        "currency": "USD"
+      },
+      "moq": 10,
+      "status": "published"
+    }
+  ]
+}
