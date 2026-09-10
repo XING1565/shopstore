@@ -42,6 +42,11 @@ class IntegrationSettings:
     woo_base_url: str = "http://localhost:8080"
     odoo_base_url: str = "http://localhost:8069"
 
+    # Odoo JSON-RPC 登录（履约轮询 worker 读取交货单状态用）
+    odoo_db: str = "shopstore_odoo"
+    odoo_user: str = "admin"
+    odoo_password: str = ""
+
     sync_poll_interval_seconds: int = 30
     sync_retry_max: int = 5
 
@@ -93,6 +98,9 @@ class IntegrationSettings:
             core_base_url=_str("CORE_BASE_URL", "http://localhost:8000"),
             woo_base_url=_str("WOO_BASE_URL", "http://localhost:8080"),
             odoo_base_url=_str("ODOO_BASE_URL", "http://localhost:8069"),
+            odoo_db=_str("ODOO_DB_NAME", "shopstore_odoo"),
+            odoo_user=_str("ODOO_USER", "admin"),
+            odoo_password=_str("ODOO_PASSWORD", ""),
             sync_poll_interval_seconds=_int("SYNC_POLL_INTERVAL_SECONDS", 30),
             sync_retry_max=_int("SYNC_RETRY_MAX", 5),
             timeout=timeout,

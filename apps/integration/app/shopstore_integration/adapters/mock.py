@@ -119,6 +119,16 @@ class MockAdapter:
         self._maybe_fail(request_id)
         return {"odoo_delivery_id": odoo_delivery_id, "status": "picking_ready"}
 
+    def get_delivery_for_sale_order(self, odoo_sale_order_id: int, *, request_id: str) -> Optional[dict[str, Any]]:
+        self._record("get_delivery_for_sale_order", odoo_sale_order_id)
+        self._maybe_latency()
+        self._maybe_fail(request_id)
+        return {
+            "odoo_sale_order_id": odoo_sale_order_id,
+            "odoo_delivery_id": self._next_id(),
+            "status": "picking_ready",
+        }
+
 
 class MockCoreAdapter:
     """实现 :class:`CoreAdapter` 的测试替身（记录调用，可注入拒绝）。"""

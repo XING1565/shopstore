@@ -24,6 +24,7 @@ from .errors import (
     UpstreamError,
     UpstreamTimeoutError,
 )
+from .fulfillment_worker import FulfillmentSyncWorker
 from .http_client import UnifiedHttpClient
 from .retry import RetryWorker
 from .sync_jobs import SyncJob, SyncJobsStore
@@ -44,6 +45,7 @@ __all__ = [
     "SyncJob",
     "SyncJobsStore",
     "RetryWorker",
+    "FulfillmentSyncWorker",
     "config",
     "errors",
     "http_client",

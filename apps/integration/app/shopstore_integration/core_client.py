@@ -109,3 +109,18 @@ class CoreClient:
 
     def get_order(self, order_id: str, *, request_id: str) -> dict[str, Any]:
         return self._get(f"/api/v1/orders/{order_id}", request_id=request_id)
+
+    def list_orders(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        request_id: str,
+    ) -> list[dict[str, Any]]:
+        """分页列出订单（运营身份），供履约轮询 worker 枚举待同步订单。"""
+        body = self._get(
+            "/api/v1/orders",
+            request_id=request_id,
+            params={"limit": limit, "offset": offset},
+        )
+        return (body or {}).get("items", [])
