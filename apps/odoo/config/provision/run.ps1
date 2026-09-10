@@ -11,18 +11,19 @@
 #   powershell -ExecutionPolicy Bypass -File apps/odoo/config/provision/run.ps1 -Action provision
 #
 # Actions:
-#   all         = init -> provision -> verify -> login-check (first-time bring-up)
+#   all         = init -> provision -> verify -> fulfill (first-time bring-up)
 #   init        = start db, init database and install sale/stock (one-time)
 #   up          = start db + odoo services
 #   provision   = idempotent config: company/warehouse/users/customer/vendor/products SKU/initial stock
-#   verify      = acceptance checks (incl. demo sale order + delivery order)
+#   verify      = stage-0 acceptance checks (incl. demo sale order + delivery order)
+#   fulfill     = stage-1 acceptance: mapping rules + sale->confirm->delivery->ship (ISSUE-0106)
 #   login-check = XML-RPC reachability + admin/warehouse login
 #   status      = compose service status
 #   logs        = tail odoo + db logs
 #   down        = stop (keep data volumes)
 
 param(
-    [ValidateSet('all', 'init', 'up', 'provision', 'verify', 'login-check', 'status', 'logs', 'down')]
+    [ValidateSet('all', 'init', 'up', 'provision', 'verify', 'fulfill', 'login-check', 'status', 'logs', 'down')]
     [string]$Action = 'all'
 )
 
@@ -82,6 +83,10 @@ switch ($Action) {
         Write-Host '==> login checks (login_check.py)'
         Invoke-Compose @('exec', '-T', 'odoo', 'sh', '-c', 'python3 /opt/odoo-provision/login_check.py')
     }
+    'fulfill' {
+        Write-Host '==> stage-1 mapping + fulfilment checks (verify_fulfillment.py)'
+        Invoke-OdooShell 'verify_fulfillment.py'
+    }
     'login-check' {
         Invoke-Compose @('exec', '-T', 'odoo', 'sh', '-c', 'python3 /opt/odoo-provision/login_check.py')
     }
@@ -91,6 +96,9 @@ switch ($Action) {
         & $MyInvocation.MyCommand.Path -Action provision
         if ($LASTEXITCODE -ne 0) { throw 'provision failed' }
         & $MyInvocation.MyCommand.Path -Action verify
+        if ($LASTEXITCODE -ne 0) { throw 'verify failed' }
+        & $MyInvocation.MyCommand.Path -Action fulfill
+        if ($LASTEXITCODE -ne 0) { throw 'fulfill failed' }
     }
     'status' {
         Invoke-Compose @('ps')

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Odoo base environment + ISSUE-0008 canonical test data - idempotent provisioning.
+"""Odoo base environment + canonical test data - idempotent provisioning.
 
 Runs inside `odoo shell` (see apps/odoo/config/README.md / provision/run.ps1).
 Idempotency contract: safe to re-run; re-running changes nothing when the
@@ -13,9 +13,18 @@ Target state (local demo, no real data):
   - customers      Demo Retailer (Approved) ref DEMO-RTL-001 (retailer_approved@example.test)
                    Demo Retailer (Pending)  ref DEMO-RTL-002 (retailer_pending@example.test)
   - vendor         Demo Supplier              ref DEMO-SUP-001
-  - products       DEMO-SKU-001 / DEMO-SKU-002 (storable, unique SKU)
+  - products       DEMO-SKU-001 / DEMO-SKU-002 (storable, sale_ok, unique SKU)
   - initial stock  DEMO-SKU-001: 120, DEMO-SKU-002: 80 at WH/Stock
   - users          admin (system), warehouse (Inventory User)
+
+Stage 1 (ISSUE-0106) adds the mapping guarantees ISSUE-0107 relies on:
+  - partner mapping  res.partner.ref        == Core retailer external id (e.g. DEMO-RTL-001)
+                     res.partner.customer_rank >= 1 so sale orders can use them
+  - SKU mapping      product.product.default_code == Core/Woo SKU (unique)
+  - order mapping    sale.order.client_order_ref == Core marketplace_order_id (idempotency key)
+  - delivery flow    confirm SO -> outgoing picking generated -> validate = shipped
+  The canonical rules live in apps/odoo/config/mapping/odoo_mapping.rules.json
+  and are documented in apps/odoo/config/MAPPING.md.
 
 Env (set on the odoo container, from apps/odoo/config/docker/.env):
   ODOO_DB_NAME, ODOO_TEST_USER_PASSWORD
@@ -77,6 +86,40 @@ def configure_warehouse(env, company):
     return wh
 
 
+def configure_sales_delivery(env, company, wh):
+    """Ensure Sales + Inventory + Delivery support the 1-step fulfilment flow.
+
+    Stage 1 flow (ISSUE-0106 acceptance):
+      create+confirm sale order -> outgoing delivery picking generated
+      -> warehouse validates the picking = shipped.
+
+    With ``delivery_steps == 'ship_only'`` Odoo creates the outgoing picking
+    directly in WH/Stock -> Customers. This function pins that contract and
+    fails loudly if the warehouse's picking type is not laid out that way.
+    """
+    PickingType = env['stock.picking.type'].sudo()
+    outgoing = PickingType.search([
+        ('code', '=', 'outgoing'),
+        ('warehouse_id', '=', wh.id),
+    ], limit=1)
+    if not outgoing:
+        raise RuntimeError('no outgoing picking type on warehouse %s' % wh.code)
+    stock_loc = wh.lot_stock_id
+    if not stock_loc:
+        raise RuntimeError('warehouse %s has no stock location' % wh.code)
+    if outgoing.default_location_src_id != stock_loc:
+        raise RuntimeError(
+            'outgoing picking type source is %s, expected %s'
+            % (outgoing.default_location_src_id.complete_name, stock_loc.complete_name)
+        )
+    info('sales/delivery ready: outgoing=%s src=%s dst=%s' % (
+        outgoing.name,
+        outgoing.default_location_src_id.complete_name,
+        outgoing.default_location_dest_id.complete_name,
+    ))
+    return outgoing
+
+
 def configure_users(env, company):
     Users = env['res.users'].sudo()
     demo_pwd = os.environ.get('ODOO_TEST_USER_PASSWORD', '')
@@ -110,27 +153,45 @@ def configure_users(env, company):
     return admin, warehouse
 
 
+CUSTOMERS = [
+    # (ref, name, email, customer_rank) - ref is the Core retailer external id.
+    ('DEMO-RTL-001', 'Demo Retailer (Approved)', 'retailer_approved@example.test', 1),
+    ('DEMO-RTL-002', 'Demo Retailer (Pending)', 'retailer_pending@example.test', 1),
+]
+
+
 def configure_partners(env):
-    customer_approved = get_or_create(
-        env, 'res.partner',
-        [('ref', '=', 'DEMO-RTL-001')],
-        {
-            'name': 'Demo Retailer (Approved)',
-            'ref': 'DEMO-RTL-001',
-            'company_type': 'company',
-            'email': 'retailer_approved@example.test',
-        },
-    )
-    customer_pending = get_or_create(
-        env, 'res.partner',
-        [('ref', '=', 'DEMO-RTL-002')],
-        {
-            'name': 'Demo Retailer (Pending)',
-            'ref': 'DEMO-RTL-002',
-            'company_type': 'company',
-            'email': 'retailer_pending@example.test',
-        },
-    )
+    """Create/ensure the canonical partners used by the marketplace mapping.
+
+    Partner mapping rule (ISSUE-0106 -> ISSUE-0107): a Core retailer maps to
+    exactly one ``res.partner`` whose ``ref`` equals the retailer external id.
+    ``customer_rank >= 1`` marks it as a sellable customer so a sale order can
+    reference it.
+    """
+    customers = []
+    for ref, name, email, rank in CUSTOMERS:
+        partner = get_or_create(
+            env, 'res.partner',
+            [('ref', '=', ref)],
+            {
+                'name': name,
+                'ref': ref,
+                'company_type': 'company',
+                'email': email,
+                'customer_rank': rank,
+            },
+        )
+        # backfill mapping invariants on pre-existing rows (idempotent)
+        vals = {}
+        if partner.customer_rank < rank:
+            vals['customer_rank'] = rank
+        if not partner.email:
+            vals['email'] = email
+        if vals:
+            partner.write(vals)
+            info('updated partner %s %s' % (ref, vals))
+        customers.append(partner)
+
     vendor = get_or_create(
         env, 'res.partner',
         [('ref', '=', 'DEMO-SUP-001')],
@@ -142,7 +203,7 @@ def configure_partners(env):
             'supplier_rank': 1,
         },
     )
-    return customer_approved, customer_pending, vendor
+    return customers, vendor
 
 
 def ensure_storable_product(env, sku, name):
@@ -163,6 +224,18 @@ def ensure_storable_product(env, sku, name):
         info('created product template %s (sku=%s)' % (tmpl.id, sku))
     else:
         info('product template exists (sku=%s, id=%s)' % (sku, tmpl.id))
+        # backfill sellability/storable invariants (idempotent)
+        vals = {}
+        if not tmpl.sale_ok:
+            vals['sale_ok'] = True
+        if 'is_storable' in Pt._fields:
+            if not tmpl.is_storable:
+                vals['is_storable'] = True
+        elif tmpl.type == 'service':
+            vals['type'] = 'product'
+        if vals:
+            tmpl.write(vals)
+            info('updated product template %s %s' % (sku, vals))
     variant = tmpl.product_variant_ids[:1]
     if not variant:
         raise RuntimeError('no product variant for sku %s' % sku)
@@ -195,6 +268,7 @@ def main(env):
     require_module(env, 'stock')
     company = configure_company(env)
     wh = configure_warehouse(env, company)
+    configure_sales_delivery(env, company, wh)
     configure_users(env, company)
     configure_partners(env)
 

@@ -15,6 +15,9 @@ Checks map to CESH-24 acceptance criteria:
   - initial stock on hand
   - can create a test sale order
   - can generate a delivery order from the sale order
+
+Stock checks reconcile on-hand against validated inbound/outbound moves, so
+stage-1 shipments (verify_fulfillment.py) do not break re-runs.
 """
 
 RESULTS = []
@@ -56,6 +59,36 @@ def main(env):
     Pt = env['product.template'].sudo()
     expected = {'DEMO-SKU-001': 120.0, 'DEMO-SKU-002': 80.0}
     Quant = env['stock.quant'].sudo()
+
+    def stock_flow(variant, loc):
+        """Return (on_hand, inbound_done, outbound_done) for a product/location.
+
+        ``inbound`` = validated moves into WH/Stock (incl. the initial inventory
+        adjustment), ``outbound`` = validated moves out of WH/Stock (shipments).
+        Reconciling on_hand == inbound - outbound keeps this check correct after
+        stage-1 shipments consume stock, so the suite stays green on re-run.
+        """
+        on_hand = sum(q.quantity for q in Quant.search([
+            ('product_id', '=', variant.id),
+            ('location_id', '=', loc.id),
+        ]))
+        moves = env['stock.move'].sudo().search([
+            ('product_id', '=', variant.id),
+            ('state', '=', 'done'),
+            '|',
+            ('location_id', '=', loc.id),
+            ('location_dest_id', '=', loc.id),
+        ])
+        inbound = sum(
+            m.product_qty for m in moves
+            if m.location_dest_id.id == loc.id and m.location_id.id != loc.id
+        )
+        outbound = sum(
+            m.product_qty for m in moves
+            if m.location_id.id == loc.id and m.location_dest_id.id != loc.id
+        )
+        return on_hand, inbound, outbound
+
     products = {}
     for sku, qty in expected.items():
         tmpls = Pt.search([('default_code', '=', sku)])
@@ -63,14 +96,19 @@ def main(env):
         if tmpls:
             variant = tmpls[:1].product_variant_ids[:1]
             products[sku] = variant
-            on_hand = 0.0
             if variant and wh:
                 loc = wh.lot_stock_id
-                on_hand = sum(q.quantity for q in Quant.search([
-                    ('product_id', '=', variant.id),
-                    ('location_id', '=', loc.id),
-                ]))
-            check('initial stock %s >= %s at WH/Stock' % (sku, qty), on_hand >= qty, 'on_hand=%.1f' % on_hand)
+                on_hand, inbound, outbound = stock_flow(variant, loc)
+                check(
+                    'initial stock %s >= %s at WH/Stock' % (sku, qty),
+                    inbound >= qty,
+                    'inbound=%.1f' % inbound,
+                )
+                check(
+                    'on-hand %s reconciled (on_hand == inbound - outbound)' % sku,
+                    abs(on_hand - (inbound - outbound)) < 0.001,
+                    'on_hand=%.1f expected=%.1f' % (on_hand, inbound - outbound),
+                )
 
     # Demo sale order + delivery order generation (idempotent).
     customer = Partner.search([('ref', '=', 'DEMO-RTL-001')], limit=1)
@@ -92,6 +130,7 @@ def main(env):
                 order += 10
         so_demo = env['sale.order'].sudo().create({
             'name': 'SO-DEMO-001',
+            'client_order_ref': 'DEMO-MKT-ORDER-001',
             'partner_id': customer.id if customer else False,
             'partner_invoice_id': customer.id if customer else False,
             'partner_shipping_id': customer.id if customer else False,
@@ -100,6 +139,8 @@ def main(env):
         so_demo.action_confirm()
         check('test sale order SO-DEMO-001 confirmed', so_demo.state == 'sale', so_demo.state)
     else:
+        if not so_demo.client_order_ref:
+            so_demo.write({'client_order_ref': 'DEMO-MKT-ORDER-001'})
         check('test sale order SO-DEMO-001 confirmed', so_demo.state in ('sale', 'done'), so_demo.state)
 
     pickings = so_demo.picking_ids.filtered(lambda p: p.picking_type_id.code == 'outgoing')
