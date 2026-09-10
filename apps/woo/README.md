@@ -72,6 +72,24 @@ docker compose exec woo wp --allow-root --path=/var/www/html user list
 docker compose exec woo wp --allow-root --path=/var/www/html wc --help
 ```
 
+## 网络边界（容器内 vs 宿主机）
+
+`MARKETPLACE_CORE_URL` 是让 **Woo 容器内**的桥接插件 / 主题回调 Marketplace Core 的地址。
+它与宿主机浏览器使用的地址属于不同网络命名空间，必须区分：
+
+| 访问方 | Core 地址 | 说明 |
+| --- | --- | --- |
+| 宿主机浏览器 / curl | `http://localhost:8000` | Core 端口已发布到宿主机（`infra/docker/compose.yaml`，`APP_PORT=8000`） |
+| Woo 容器内（bridge / 主题） | `http://host.docker.internal:8000` | 默认值；`host.docker.internal` 指宿主机，compose 已声明 `extra_hosts` host-gateway（Linux 亦可解析） |
+| Woo 容器内写 `localhost:8000` | 不可达（curl 000） | 容器内 `localhost` 指 Woo 自己，不是 Core |
+| Woo 容器内写 `core:8000` | 不可达（curl 000） | Core 与 Woo 分属不同 compose 项目 / 不同 docker 网络 |
+
+- 本地开发默认值已修正为容器可达地址；从 `infra/env/woo.env.example` 生成本地 `.env` 后
+  `docker compose up -d` 重新应用即收敛，无需手工 `docker exec` 改容器内配置。
+- **staging**：Core 通常位于独立主机 / 独立 docker 网络，`host.docker.internal` 不再是正确路径；
+  必须在 staging 的 `apps/woo/.env` 显式设置 `MARKETPLACE_CORE_URL` 为可达地址（内网 DNS /
+  负载均衡 / 与 Core 共享 docker 网络时的服务名），不要沿用本地默认值。
+
 ## 测试账号
 
 | 账号 | 角色 | 默认值（来自 .env，模板为占位符，需自行设置） |
