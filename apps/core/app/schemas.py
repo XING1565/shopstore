@@ -238,6 +238,7 @@ class OrderCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     lines: list[OrderLineCreate] = Field(min_length=1)
+    woo_order_id: int | None = None
 
 
 class OrderLineView(BaseModel):

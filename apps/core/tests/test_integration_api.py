@@ -179,3 +179,61 @@ def test_writeback_requires_operator(db_client) -> None:
         headers=_buyer_headers(buyer["retailer_id"]),
     )
     assert resp.status_code == 403
+
+
+def test_writeback_woo_order_id_records_mapping(db_client) -> None:
+    _seed_product(db_client)
+    buyer = _register_buyer(db_client)
+    order = _place_order(db_client, buyer)
+    assert order["external_ids"].get("woo_order_id") is None
+
+    resp = db_client.post(
+        f"/api/v1/orders/{order['marketplace_order_id']}/external-ids",
+        json={"woo_order_id": 789},
+        headers=OPERATOR,
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["external_ids"]["woo_order_id"] == 789
+    assert body["status"] == "submitted"
+
+
+def test_writeback_woo_order_id_idempotent_then_conflict(db_client) -> None:
+    _seed_product(db_client)
+    buyer = _register_buyer(db_client)
+    order = _place_order(db_client, buyer)
+
+    first = db_client.post(
+        f"/api/v1/orders/{order['marketplace_order_id']}/external-ids",
+        json={"woo_order_id": 789},
+        headers=OPERATOR,
+    )
+    assert first.status_code == 200
+
+    second = db_client.post(
+        f"/api/v1/orders/{order['marketplace_order_id']}/external-ids",
+        json={"woo_order_id": 789},
+        headers=OPERATOR,
+    )
+    assert second.status_code == 200
+    assert second.json()["external_ids"]["woo_order_id"] == 789
+
+    conflict = db_client.post(
+        f"/api/v1/orders/{order['marketplace_order_id']}/external-ids",
+        json={"woo_order_id": 987},
+        headers=OPERATOR,
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["error"]["code"] == "conflict"
+
+
+def test_writeback_requires_external_id(db_client) -> None:
+    _seed_product(db_client)
+    buyer = _register_buyer(db_client)
+    order = _place_order(db_client, buyer)
+    resp = db_client.post(
+        f"/api/v1/orders/{order['marketplace_order_id']}/external-ids",
+        json={},
+        headers=OPERATOR,
+    )
+    assert resp.status_code == 400

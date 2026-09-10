@@ -17,6 +17,7 @@ __all__ = [
     "list_orders",
     "report_fulfillment",
     "record_odoo_sale_order",
+    "record_woo_order",
 ]
 
 
@@ -119,6 +120,8 @@ def place_order(
         )
 
     order = Order(retailer_id=retailer.id, currency=currency or "USD")
+    if payload.woo_order_id is not None:
+        order.woo_order_id = payload.woo_order_id
     order.lines.extend(lines)
     session.add(order)
     session.flush()
@@ -231,6 +234,44 @@ def record_odoo_sale_order(
         # 订单已越过 sent_to_odoo（理论上不会发生在 odoo_sale_order_id 为空时），
         # 保留映射但不再推进状态；状态倒退场景由状态机拒绝。
         pass
+    session.commit()
+    return order
+
+
+def record_woo_order(
+    session: Session,
+    order_id: str,
+    woo_order_id: int,
+    *,
+    request_id: str | None = None,
+) -> Order:
+    """写回 Woo 订单 ID（Integration / bridge 调用）。
+
+    幂等语义：
+
+    - 订单已映射到同一 ``woo_order_id`` → 直接返回，无副作用；
+    - 订单已映射到不同 ID → 409（同一订单不应出现两个 Woo 订单号）；
+    - 首次写回 → 记录映射（不推进状态；订单状态由下单与 Odoo 履约驱动）。
+    """
+    order = get_order(session, order_id)
+    if order.woo_order_id is not None:
+        if order.woo_order_id != woo_order_id:
+            raise AppError(
+                409,
+                "conflict",
+                "订单已映射到不同的 Woo 订单号",
+                details=[
+                    ErrorDetail(
+                        field="woo_order_id",
+                        reason=(
+                            f"订单 {order_id} 已映射到 "
+                            f"{order.woo_order_id}，收到 {woo_order_id}"
+                        ),
+                    )
+                ],
+            )
+        return order
+    order.woo_order_id = woo_order_id
     session.commit()
     return order
 
