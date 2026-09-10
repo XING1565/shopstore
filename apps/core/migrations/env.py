@@ -19,6 +19,7 @@ if str(APP_DIR) not in sys.path:
 
 from app.config import get_settings  # noqa: E402
 from app.db import Base  # noqa: E402
+import app.models  # noqa: E402,F401  确保业务模型注册进 Base.metadata
 
 config = context.config
 
