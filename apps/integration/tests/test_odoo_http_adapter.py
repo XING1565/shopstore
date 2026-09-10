@@ -242,3 +242,92 @@ def test_amount_minor_to_float() -> None:
     assert amount_minor_to_float(129900, "USD") == 1299.0
     assert amount_minor_to_float(500, "JPY") == 500.0
     assert amount_minor_to_float(50, "USD") == 0.5
+
+
+class DeliveryState:
+    """get_delivery_for_sale_order 的内存替身：sale.order.picking_ids + stock.picking。"""
+
+    def __init__(self) -> None:
+        self.sale_orders: dict[int, dict] = {1: {"id": 1, "picking_ids": [10, 11]}}
+        self.pickings: dict[int, dict] = {
+            10: {"id": 10, "state": "done", "name": "WH/OUT/00001", "picking_type_id": (5, "Deliveries")},
+            11: {"id": 11, "state": "assigned", "name": "WH/INT/00001", "picking_type_id": (6, "Internal")},
+        }
+        self.picking_types: dict[int, str] = {5: "outgoing", 6: "internal"}
+
+    def _search(self, model: str, domain: list, limit: int) -> list[int]:
+        if model == "sale.order":
+            ids = list(self.sale_orders.keys())
+            for field, op, value in domain:
+                if op == "=":
+                    ids = [i for i in ids if self.sale_orders[i].get(field) == value]
+            return ids[:limit] if limit else ids
+        if model == "stock.picking":
+            ids = list(self.pickings.keys())
+            for field, op, value in domain:
+                if field == "id" and op == "in":
+                    ids = [i for i in ids if i in value]
+                elif field == "picking_type_id.code" and op == "=":
+                    ids = [
+                        i
+                        for i in ids
+                        if self.picking_types.get(self.pickings[i]["picking_type_id"][0]) == value
+                    ]
+            return ids[:limit] if limit else ids
+        raise RuntimeError(f"unknown model {model}")
+
+    def _read(self, model: str, ids: list[int], fields: list[str]) -> list[dict]:
+        collection = {"sale.order": self.sale_orders, "stock.picking": self.pickings}[model]
+        return [{f: collection[i][f] for f in fields} for i in ids]
+
+
+def make_delivery_client(state: DeliveryState) -> UnifiedHttpClient:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        params = body["params"]
+        if params["service"] == "common" and params["method"] == "authenticate":
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": 2})
+        if params["service"] == "object" and params["method"] == "execute_kw":
+            _db, _uid, _pwd, model, method, margs, kwargs = params["args"]
+            if method == "search":
+                result = state._search(model, margs[0], kwargs.get("limit", 0))
+                return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": result})
+            if method == "read":
+                result = state._read(model, margs[0], margs[1])
+                return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": result})
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": None})
+
+    return UnifiedHttpClient(transport=httpx.MockTransport(handler))
+
+
+def make_delivery_adapter(state: DeliveryState) -> HttpOdooAdapter:
+    return HttpOdooAdapter(
+        base_url="http://odoo.test",
+        db="shopstore_odoo",
+        username="admin",
+        password="secret",
+        client=make_delivery_client(state),
+    )
+
+
+def test_get_delivery_for_sale_order_resolves_outgoing_picking() -> None:
+    state = DeliveryState()
+    adapter = make_delivery_adapter(state)
+
+    result = adapter.get_delivery_for_sale_order(1, request_id="req-1")
+
+    assert result == {"odoo_sale_order_id": 1, "odoo_delivery_id": 10, "status": "done"}
+
+
+def test_get_delivery_for_sale_order_returns_none_without_picking() -> None:
+    state = DeliveryState()
+    state.sale_orders = {2: {"id": 2, "picking_ids": []}}
+    adapter = make_delivery_adapter(state)
+
+    assert adapter.get_delivery_for_sale_order(2, request_id="req-1") is None
+
+
+def test_get_delivery_for_sale_order_unknown_sale_order_raises_not_found() -> None:
+    adapter = make_delivery_adapter(DeliveryState())
+    with pytest.raises(ResourceNotFoundError):
+        adapter.get_delivery_for_sale_order(999, request_id="req-1")

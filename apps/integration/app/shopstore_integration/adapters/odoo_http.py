@@ -258,6 +258,45 @@ class HttpOdooAdapter(BaseAdapter):
             "status": pickings[0]["state"],
         }
 
+    def get_delivery_for_sale_order(
+        self, odoo_sale_order_id: int, *, request_id: str
+    ) -> Optional[dict[str, Any]]:
+        """按销售单查找出库交货单（``stock.picking``）。
+
+        链路遵循 ``apps/odoo/config/MAPPING.md`` §5 与 ``odoo_mapping.rules.json``
+        的 ``delivery.link_from_sale_order``：先读 ``sale.order.picking_ids``，再
+        按 ``picking_type_id.code == 'outgoing'`` 过滤出库交货单（单步交货
+        ``ship_only`` 下确认销售单后生成唯一出库单）。
+        """
+        orders = self._search_read(
+            "sale.order",
+            [("id", "=", odoo_sale_order_id)],
+            request_id=request_id,
+            fields=["id", "picking_ids"],
+        )
+        if not orders:
+            raise ResourceNotFoundError(
+                f"sale order not found: {odoo_sale_order_id}", request_id=request_id
+            )
+        picking_ids = orders[0].get("picking_ids") or []
+        if not picking_ids:
+            return None
+
+        pickings = self._search_read(
+            "stock.picking",
+            [("id", "in", picking_ids), ("picking_type_id.code", "=", "outgoing")],
+            request_id=request_id,
+            fields=["id", "state", "name"],
+        )
+        if not pickings:
+            return None
+        picking = pickings[0]
+        return {
+            "odoo_sale_order_id": odoo_sale_order_id,
+            "odoo_delivery_id": picking["id"],
+            "status": picking["state"],
+        }
+
     # ---- mapping helpers ----
     def _find_sale_order(
         self, client_order_ref: str, *, request_id: str

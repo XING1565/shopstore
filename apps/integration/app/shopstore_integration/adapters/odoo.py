@@ -33,5 +33,15 @@ class OdooAdapter(Protocol):
         """查询交货单状态，返回含 ``status`` 的映射。"""
         ...
 
+    def get_delivery_for_sale_order(
+        self, odoo_sale_order_id: int, *, request_id: str
+    ) -> Optional[dict[str, Any]]:
+        """按销售单查找出库交货单（``stock.picking``）。
+
+        返回含 ``odoo_delivery_id`` / ``odoo_sale_order_id`` / ``status`` 的映射；
+        销售单尚未确认（尚无交货单）时返回 ``None``。
+        """
+        ...
+
 
 __all__ = ["OdooAdapter"]

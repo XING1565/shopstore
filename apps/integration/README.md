@@ -91,6 +91,49 @@ running（执行中）
 退避参数由 `RetryConfig`（`SYNC_RETRY_MAX` / `SYNC_RETRY_BACKOFF_SECONDS` /
 `SYNC_RETRY_BACKOFF_FACTOR`）控制，见 `config.py`。
 
+## 阶段 1 已交付（ISSUE-0115：履约状态回传长驻轮询 worker）
+
+ISSUE-0108 交付了 `ReportFulfillmentTask`（Odoo 状态映射 + 回传），但缺少读取
+Odoo 交货单状态并分派的长驻轮询服务。本任务补齐该 worker：
+
+```text
+Core 订单（已写回 odoo_sale_order_id 且未到履约终态）
+  -> FulfillmentSyncWorker 轮询 Core GET /api/v1/orders
+  -> 读 Odoo 出库交货单（sale.order.picking_ids，outgoing）
+  -> 按状态机阶梯（odoo_confirmed -> inventory_reserved -> picking_ready -> shipped）
+     补齐中间态，逐状态分派 ReportFulfillmentTask
+  -> Core 单向推进（重复 / 乱序 / 倒退由 Core 状态机拒绝）
+```
+
+| 模块 | 职责 |
+| --- | --- |
+| `fulfillment_worker.py` | `FulfillmentSyncWorker`：读 Odoo 交货单状态 → 计算状态阶梯 → 逐状态分派；`fulfillment_status_path` 计算需回传的状态序列 |
+| `adapters/odoo.py` / `odoo_http.py` | `OdooAdapter.get_delivery_for_sale_order`：按销售单查交出库交货单（`sale.order.picking_ids`，过滤 `picking_type_id.code == 'outgoing'`） |
+| `core_client.py` | `CoreClient.list_orders`：分页列出订单（供 worker 枚举待同步订单） |
+| `runtime.py` | 装配真实运行时（Core 客户端 + Odoo Adapter + worker + sync_jobs） |
+| `cli.py` | 后台命令 `python -m shopstore_integration poll-fulfillment [--interval N] [--limit N] [--once]` |
+
+关键语义：
+
+- **单向推进**：Odoo 交货单状态比 Core 状态机更粗（`confirmed/assigned/done` vs
+  `odoo_confirmed/inventory_reserved/picking_ready/shipped`），worker 按
+  `FULFILLMENT_STATUS_LADDER` 补齐被跳过的中间态，逐状态回传，保证状态机单向推进；
+- **幂等**：每个 `(odoo_delivery_id, odoo_status)` 一个幂等键，同一状态只回传一次；
+- **不倒退**：乱序 / 重复回传由 Core 状态机拒绝（409），worker 每轮重新读 Core
+  状态再计算阶梯，不产生倒退迁移；
+- **重试 / 退避**：回传失败由 `ReportFulfillmentTask` 复用 `sync_jobs` 的重试 / 退避 /
+  死信语义，网络抖动不丢回传；读取 Odoo 失败仅记录日志，下一轮重试。
+
+运行：
+
+```powershell
+cd apps/integration
+# 长驻轮询（间隔取 SYNC_POLL_INTERVAL_SECONDS）
+python -m shopstore_integration poll-fulfillment
+# 单次触发（测试 / 手动）
+python -m shopstore_integration poll-fulfillment --once
+```
+
 ## 契约对齐
 
 接口边界遵循 `packages/contracts/`（ISSUE-0007）：
