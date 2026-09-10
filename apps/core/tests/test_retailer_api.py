@@ -104,3 +104,50 @@ def test_retailer_cannot_view_other_retailer(db_client) -> None:
         headers=_buyer_headers(a["retailer_id"]),
     )
     assert resp.status_code == 403
+
+
+def test_writeback_odoo_partner_external_ids(db_client) -> None:
+    body = _register(db_client)
+    rid = body["retailer_id"]
+    assert body.get("odoo_partner_ref") is None
+
+    resp = db_client.post(
+        f"/api/v1/retailers/{rid}/external-ids",
+        json={"odoo_partner_ref": "DEMO-RTL-001", "odoo_partner_id": 44},
+        headers=OPERATOR,
+    )
+    assert resp.status_code == 200, resp.text
+    got = resp.json()
+    assert got["odoo_partner_ref"] == "DEMO-RTL-001"
+    assert got["odoo_partner_id"] == 44
+
+
+def test_writeback_odoo_partner_conflict_for_different_ref(db_client) -> None:
+    body = _register(db_client)
+    rid = body["retailer_id"]
+
+    first = db_client.post(
+        f"/api/v1/retailers/{rid}/external-ids",
+        json={"odoo_partner_ref": "DEMO-RTL-001"},
+        headers=OPERATOR,
+    )
+    assert first.status_code == 200
+
+    second = db_client.post(
+        f"/api/v1/retailers/{rid}/external-ids",
+        json={"odoo_partner_ref": "DEMO-RTL-002"},
+        headers=OPERATOR,
+    )
+    assert second.status_code == 409
+    assert second.json()["error"]["code"] == "conflict"
+
+
+def test_writeback_odoo_partner_requires_operator(db_client) -> None:
+    body = _register(db_client)
+    rid = body["retailer_id"]
+    resp = db_client.post(
+        f"/api/v1/retailers/{rid}/external-ids",
+        json={"odoo_partner_ref": "DEMO-RTL-001"},
+        headers=_buyer_headers(rid),
+    )
+    assert resp.status_code == 403

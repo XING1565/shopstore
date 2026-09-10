@@ -229,7 +229,12 @@ class HttpOdooAdapter(BaseAdapter):
             ],
             request_id=request_id,
         )
-        return {"odoo_sale_order_id": so_id, "created": True}
+        return {
+            "odoo_sale_order_id": so_id,
+            "created": True,
+            "odoo_partner_id": partner["id"],
+            "odoo_partner_ref": partner["ref"],
+        }
 
     def confirm_sale_order(self, odoo_sale_order_id: int, *, request_id: str) -> dict[str, Any]:
         self._execute_kw(

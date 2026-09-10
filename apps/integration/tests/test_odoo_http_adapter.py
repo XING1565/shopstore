@@ -185,6 +185,28 @@ def test_create_sale_order_is_idempotent_by_client_order_ref() -> None:
     assert len(state.created_sale_orders) == 1
 
 
+def test_same_retailer_two_orders_reuse_single_partner() -> None:
+    state = FakeOdooState()
+    adapter = make_adapter(state)
+
+    base = {
+        "retailer_ref": "DEMO-RTL-001",
+        "retailer_name": "Demo Retailer",
+        "retailer_email": "r@example.test",
+        "lines": [
+            {"sku": "DEMO-SKU-001", "quantity": 1, "unit_price": {"amount_minor": 100, "currency": "USD"}},
+        ],
+    }
+    first = adapter.create_sale_order({**base, "marketplace_order_id": "ORDER-A"}, request_id="req-1")
+    second = adapter.create_sale_order({**base, "marketplace_order_id": "ORDER-B"}, request_id="req-2")
+
+    assert first["odoo_partner_id"] == 1
+    assert second["odoo_partner_id"] == 1
+    assert first["odoo_partner_ref"] == "DEMO-RTL-001"
+    partners_with_ref = [p for p in state.partners.values() if p.get("ref") == "DEMO-RTL-001"]
+    assert len(partners_with_ref) == 1
+
+
 def test_create_sale_order_unknown_sku_raises_not_found() -> None:
     adapter = make_adapter(FakeOdooState())
     with pytest.raises(ResourceNotFoundError):

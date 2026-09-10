@@ -26,6 +26,26 @@ def test_retailer_model_creates_and_persists(session) -> None:
     assert got.updated_at is not None
 
 
+def test_retailer_odoo_partner_external_ids(session) -> None:
+    r = _retailer(odoo_partner_ref="DEMO-RTL-001", odoo_partner_id=44)
+    session.add(r)
+    session.commit()
+
+    got = session.get(Retailer, r.id)
+    assert got.odoo_partner_ref == "DEMO-RTL-001"
+    assert got.odoo_partner_id == 44
+
+
+def test_retailer_odoo_partner_external_ids_null_by_default(session) -> None:
+    r = _retailer()
+    session.add(r)
+    session.commit()
+
+    got = session.get(Retailer, r.id)
+    assert got.odoo_partner_ref is None
+    assert got.odoo_partner_id is None
+
+
 def test_brand_and_product_with_price_moq_external_ids(session) -> None:
     brand = Brand(name="Demo Brand")
     session.add(brand)

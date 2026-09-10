@@ -90,5 +90,22 @@ class CoreClient:
     def get_retailer(self, retailer_id: str, *, request_id: str) -> dict[str, Any]:
         return self._get(f"/api/v1/retailers/{retailer_id}", request_id=request_id)
 
+    def record_odoo_partner(
+        self,
+        retailer_id: str,
+        *,
+        odoo_partner_ref: Optional[str] = None,
+        odoo_partner_id: Optional[int] = None,
+        request_id: str,
+    ) -> dict[str, Any]:
+        return self._post(
+            f"/api/v1/retailers/{retailer_id}/external-ids",
+            request_id=request_id,
+            json={
+                "odoo_partner_ref": odoo_partner_ref,
+                "odoo_partner_id": odoo_partner_id,
+            },
+        )
+
     def get_order(self, order_id: str, *, request_id: str) -> dict[str, Any]:
         return self._get(f"/api/v1/orders/{order_id}", request_id=request_id)

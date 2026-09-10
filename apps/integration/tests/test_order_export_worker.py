@@ -16,6 +16,7 @@ class FakeCore:
         self.pending: list[dict] = []
         self.acked: list[str] = []
         self.writebacks: list[tuple[str, int]] = []
+        self.partner_writebacks: list[tuple[str, dict]] = []
         self.fail_writeback = False
 
     def list_pending_events(self, *, event_type, limit, request_id):
@@ -27,6 +28,15 @@ class FakeCore:
 
     def get_retailer(self, retailer_id, *, request_id):
         return self.retailers[retailer_id]
+
+    def record_odoo_partner(self, retailer_id, *, odoo_partner_ref=None, odoo_partner_id=None, request_id):
+        if odoo_partner_ref is not None:
+            self.retailers[retailer_id]["odoo_partner_ref"] = odoo_partner_ref
+        if odoo_partner_id is not None:
+            self.retailers[retailer_id]["odoo_partner_id"] = odoo_partner_id
+        self.partner_writebacks.append(
+            (retailer_id, {"odoo_partner_ref": odoo_partner_ref, "odoo_partner_id": odoo_partner_id})
+        )
 
     def record_odoo_sale_order(self, order_id, odoo_sale_order_id, *, request_id):
         if self.fail_writeback:
@@ -68,6 +78,10 @@ def _make_worker(sync_jobs_store):
 
 def _create_sale_order_calls(odoo: MockAdapter) -> int:
     return len([c for c in odoo.calls if c[0] == "create_sale_order"])
+
+
+def _create_sale_order_payloads(odoo: MockAdapter) -> list[dict]:
+    return [c[1][0] for c in odoo.calls if c[0] == "create_sale_order"]
 
 
 def test_worker_exports_order_and_writes_back(sync_jobs_store) -> None:
@@ -141,3 +155,36 @@ def test_worker_leaves_event_pending_on_odoo_failure(clock, clock_store) -> None
     worker.run_once()
     assert core.writebacks == [("ORDER-1", 1)]
     assert core.acked == ["ev-1"]
+
+
+def test_worker_uses_canonical_odoo_partner_ref(sync_jobs_store) -> None:
+    worker, core, odoo = _make_worker(sync_jobs_store)
+    core.retailers["RTL-1"] = {
+        "company_name": "Acme",
+        "email": "buyer@example.test",
+        "odoo_partner_ref": "DEMO-RTL-001",
+        "odoo_partner_id": 44,
+    }
+    core.pending.append(_event("ev-1", "ORDER-1", "RTL-1"))
+
+    worker.run_once()
+
+    payloads = _create_sale_order_payloads(odoo)
+    assert payloads[0]["retailer_ref"] == "DEMO-RTL-001"
+    # 已映射 canonical partner 的买家不再回写映射。
+    assert core.partner_writebacks == []
+    assert core.acked == ["ev-1"]
+
+
+def test_worker_writes_back_partner_mapping_once(sync_jobs_store) -> None:
+    worker, core, odoo = _make_worker(sync_jobs_store)
+    core.pending.append(_event("ev-1", "ORDER-1", "RTL-1"))
+    core.pending.append(_event("ev-2", "ORDER-2", "RTL-1"))
+
+    worker.run_once()
+
+    # 第一次下单写回 partner 映射；第二次复用已写回的 ref，不再重复写回。
+    assert len(core.partner_writebacks) == 1
+    assert core.partner_writebacks[0][1]["odoo_partner_ref"] == "RTL-1"
+    assert core.retailers["RTL-1"]["odoo_partner_ref"] == "RTL-1"
+    assert core.acked == ["ev-1", "ev-2"]

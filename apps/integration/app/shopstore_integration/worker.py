@@ -105,12 +105,18 @@ class OrderExportWorker:
             )
             return
 
+        retailer: dict[str, Any] = {}
+        retailer_ref: Optional[str] = None
         try:
             retailer = self.core.get_retailer(retailer_id, request_id=request_id)
+            # 优先用 Core 侧已映射的 canonical ``odoo_partner_ref``（如 DEMO-RTL-001）
+            # 匹配 Odoo partner；未映射时回退到 retailer_id，由 Odoo 侧按 ref 新建
+            # 并在下方写回外部 ID（ISSUE-0112）。
+            retailer_ref = retailer.get("odoo_partner_ref") or retailer_id
             command = export_order_command(
                 marketplace_order_id=marketplace_order_id,
                 lines=data.get("lines", []),
-                retailer_ref=retailer_id,
+                retailer_ref=retailer_ref,
                 retailer_name=retailer.get("company_name"),
                 retailer_email=retailer.get("email"),
                 trace_id=trace_id,
@@ -155,6 +161,26 @@ class OrderExportWorker:
                 marketplace_order_id=marketplace_order_id,
             )
             return
+
+        # 买家尚未映射到 Odoo partner 时，回写外部 ID（ref 为稳定匹配键），
+        # 保证同一买家后续订单复用同一 partner，不重复创建。
+        if not retailer.get("odoo_partner_ref"):
+            partner_ref = result.external_ids.get("odoo_partner_ref") or retailer_ref
+            partner_id = result.external_ids.get("odoo_partner_id")
+            try:
+                self.core.record_odoo_partner(
+                    retailer_id,
+                    odoo_partner_ref=partner_ref,
+                    odoo_partner_id=partner_id,
+                    request_id=request_id,
+                )
+            except Exception as exc:  # noqa: BLE001
+                self.logger.error(
+                    "writeback odoo_partner mapping failed; leaving pending",
+                    retailer_id=retailer_id,
+                    error=str(exc),
+                )
+                return
 
         try:
             self.core.record_odoo_sale_order(
