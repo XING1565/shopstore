@@ -13,7 +13,13 @@ from app.api.deps import (
     require_operator,
 )
 from app.errors import AppError
-from app.schemas import OrderCreate, OrderFulfillmentUpdate, OrderList, OrderView
+from app.schemas import (
+    OrderCreate,
+    OrderExternalIdWriteback,
+    OrderFulfillmentUpdate,
+    OrderList,
+    OrderView,
+)
 from app.services import orders as order_service
 from app.services.serializers import order_to_view
 
@@ -112,4 +118,32 @@ def report_fulfillment(
     order = order_service.report_fulfillment(
         session, order_id, payload, request_id=_request_id(request)
     )
+    return order_to_view(order)
+
+
+@router.post(
+    "/orders/{order_id}/external-ids",
+    response_model=OrderView,
+    response_model_exclude_none=True,
+    summary="写回订单外部 ID 映射（Integration 调用，运营身份）",
+    operation_id="writebackOrderExternalIds",
+)
+def writeback_external_ids(
+    order_id: str,
+    payload: OrderExternalIdWriteback,
+    session: SessionDep,
+    principal: PrincipalDep,
+    request: Request,
+) -> OrderView:
+    require_operator(principal)
+    if payload.odoo_sale_order_id is not None:
+        order = order_service.record_odoo_sale_order(
+            session,
+            order_id,
+            payload.odoo_sale_order_id,
+            request_id=_request_id(request),
+        )
+    else:
+        order = order_service.get_order(session, order_id)
+        raise AppError(400, "bad_request", "未提供可写回的外部 ID")
     return order_to_view(order)

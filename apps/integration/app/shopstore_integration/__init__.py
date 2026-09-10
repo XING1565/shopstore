@@ -25,6 +25,7 @@ from .errors import (
     UpstreamTimeoutError,
 )
 from .http_client import UnifiedHttpClient
+from .sync_jobs import SyncJob, SyncJobsStore
 
 __all__ = [
     "IntegrationSettings",
@@ -39,6 +40,8 @@ __all__ = [
     "UpstreamError",
     "UpstreamTimeoutError",
     "UnifiedHttpClient",
+    "SyncJob",
+    "SyncJobsStore",
     "config",
     "errors",
     "http_client",
