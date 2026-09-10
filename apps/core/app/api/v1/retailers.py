@@ -13,7 +13,13 @@ from app.api.deps import (
 )
 from app.errors import AppError
 from app.models.enums import RetailerStatus
-from app.schemas import RetailerCreate, RetailerList, RetailerReview, RetailerView
+from app.schemas import (
+    RetailerCreate,
+    RetailerExternalIdWriteback,
+    RetailerList,
+    RetailerReview,
+    RetailerView,
+)
 from app.services import retailers as retailer_service
 from app.services.serializers import retailer_to_view
 
@@ -132,6 +138,33 @@ def reject_retailer(
         RetailerStatus.rejected,
         payload,
         actor=principal.operator_name or "operator",
+        request_id=_request_id(request),
+    )
+    return retailer_to_view(retailer)
+
+
+@router.post(
+    "/retailers/{retailer_id}/external-ids",
+    response_model=RetailerView,
+    response_model_exclude_none=True,
+    summary="写回买家 Odoo partner 外部 ID 映射（Integration 调用，运营身份）",
+    operation_id="writebackRetailerExternalIds",
+)
+def writeback_external_ids(
+    retailer_id: str,
+    payload: RetailerExternalIdWriteback,
+    session: SessionDep,
+    principal: PrincipalDep,
+    request: Request,
+) -> RetailerView:
+    require_operator(principal)
+    if payload.odoo_partner_ref is None and payload.odoo_partner_id is None:
+        raise AppError(400, "bad_request", "未提供可写回的外部 ID")
+    retailer = retailer_service.record_odoo_partner(
+        session,
+        retailer_id,
+        odoo_partner_ref=payload.odoo_partner_ref,
+        odoo_partner_id=payload.odoo_partner_id,
         request_id=_request_id(request),
     )
     return retailer_to_view(retailer)

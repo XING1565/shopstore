@@ -28,6 +28,8 @@ def retailer_to_view(r: Retailer) -> RetailerView:
         company_name=r.company_name,
         contact_name=r.contact_name,
         phone=r.phone,
+        odoo_partner_ref=r.odoo_partner_ref,
+        odoo_partner_id=r.odoo_partner_id,
         status=r.status.value,
         reviewed_by=r.reviewed_by,
         reviewed_at=to_utc_iso(r.reviewed_at),

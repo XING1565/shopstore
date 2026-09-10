@@ -9,13 +9,14 @@ from app.errors import AppError
 from app.models import Retailer
 from app.models.enums import RetailerStatus
 from app.models.state_machine import InvalidStateTransitionError
-from app.schemas import RetailerCreate, RetailerReview
+from app.schemas import ErrorDetail, RetailerCreate, RetailerReview
 
 __all__ = [
     "register_retailer",
     "get_retailer",
     "list_retailers",
     "review_retailer",
+    "record_odoo_partner",
 ]
 
 
@@ -110,5 +111,48 @@ def review_retailer(
             _retailer_event_data(retailer),
             request_id=request_id,
         )
+    session.commit()
+    return retailer
+
+
+def record_odoo_partner(
+    session: Session,
+    retailer_id: str,
+    *,
+    odoo_partner_ref: str | None = None,
+    odoo_partner_id: int | None = None,
+    request_id: str | None = None,
+) -> Retailer:
+    """写回买家 → Odoo partner 的外部 ID 映射（Integration 调用）。
+
+    幂等语义：
+
+    - 买家已映射到同一 ``odoo_partner_ref`` → 直接返回，无副作用；
+    - 买家已映射到不同 ``odoo_partner_ref`` → 409（同一买家不应出现两个 partner）；
+    - 首次写回 → 记录映射。
+    """
+    retailer = get_retailer(session, retailer_id)
+    if odoo_partner_ref is not None:
+        if (
+            retailer.odoo_partner_ref is not None
+            and retailer.odoo_partner_ref != odoo_partner_ref
+        ):
+            raise AppError(
+                409,
+                "conflict",
+                "买家已映射到不同的 Odoo partner ref",
+                details=[
+                    ErrorDetail(
+                        field="odoo_partner_ref",
+                        reason=(
+                            f"买家 {retailer_id} 已映射到 "
+                            f"{retailer.odoo_partner_ref}，收到 {odoo_partner_ref}"
+                        ),
+                    )
+                ],
+            )
+        retailer.odoo_partner_ref = odoo_partner_ref
+    if odoo_partner_id is not None:
+        retailer.odoo_partner_id = odoo_partner_id
     session.commit()
     return retailer

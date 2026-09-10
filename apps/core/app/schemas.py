@@ -23,6 +23,7 @@ __all__ = [
     "OrderExternalIds",
     "RetailerCreate",
     "RetailerReview",
+    "RetailerExternalIdWriteback",
     "RetailerView",
     "RetailerList",
     "ProductCreate",
@@ -141,6 +142,15 @@ class RetailerReview(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+class RetailerExternalIdWriteback(BaseModel):
+    """Integration 写回买家 Odoo partner 外部 ID 映射的请求体（至少提供一项）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    odoo_partner_ref: str | None = Field(default=None, max_length=64)
+    odoo_partner_id: int | None = None
+
+
 class RetailerList(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -158,6 +168,8 @@ class RetailerView(BaseModel):
     company_name: str
     contact_name: str | None = None
     phone: str | None = None
+    odoo_partner_ref: str | None = None
+    odoo_partner_id: int | None = None
     status: RetailerStatusLiteral
     reviewed_by: str | None = None
     reviewed_at: str | None = None

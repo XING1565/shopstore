@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text
+from sqlalchemy import BigInteger, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -28,6 +28,16 @@ class Retailer(TimestampMixin, Base):
     company_name: Mapped[str] = mapped_column(String(255), nullable=False)
     contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # Odoo 客户映射：``odoo_partner_ref`` 是匹配 ``res.partner.ref`` 的稳定业务键
+    # （如 ``DEMO-RTL-001``），``odoo_partner_id`` 是 Odoo 侧 partner 整数 ID。
+    # 两者由 Integration 首次导出订单时写回（见 docs/数据模型与状态机.md §4）。
+    odoo_partner_ref: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
+    odoo_partner_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, index=True
+    )
 
     status: Mapped[RetailerStatus] = mapped_column(
         sa_enum(RetailerStatus, "retailer_status"),

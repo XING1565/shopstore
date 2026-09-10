@@ -101,7 +101,11 @@ class MockAdapter:
         self._record("create_sale_order", order)
         self._maybe_latency()
         self._maybe_fail(request_id)
-        return {"odoo_sale_order_id": self._next_id()}
+        return {
+            "odoo_sale_order_id": self._next_id(),
+            "odoo_partner_id": self._next_id(),
+            "odoo_partner_ref": order.get("retailer_ref"),
+        }
 
     def confirm_sale_order(self, odoo_sale_order_id: int, *, request_id: str) -> dict[str, Any]:
         self._record("confirm_sale_order", odoo_sale_order_id)
