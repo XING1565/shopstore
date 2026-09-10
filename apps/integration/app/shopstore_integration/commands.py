@@ -103,10 +103,46 @@ def export_order_command(
     )
 
 
+def report_fulfillment_command(
+    *,
+    marketplace_order_id: str,
+    odoo_delivery_id: int,
+    odoo_status: str,
+    odoo_sale_order_id: Optional[int] = None,
+    trace_id: Optional[str] = None,
+    request_id: Optional[str] = None,
+) -> Command:
+    """构造「回传 Odoo 履约状态到 Core」命令。
+
+    ``odoo_status`` 为从 Odoo 读到的交货单状态（如 ``done`` / ``assigned``，
+    或已归一化的 ``shipped`` / ``picking_ready``）。幂等键按
+    ``odoo_delivery_id + odoo_status`` 区分，保证同一交货单的不同状态推进
+    各自只回传一次，重复回传被幂等跳过。
+    """
+    return Command(
+        command_type="commerce.order.fulfillment",
+        idempotency_key=IdempotencyKey(
+            scope="odoo",
+            entity="order",
+            action="fulfillment",
+            source_id=f"{odoo_delivery_id}-{odoo_status}",
+        ),
+        payload={
+            "marketplace_order_id": marketplace_order_id,
+            "odoo_delivery_id": odoo_delivery_id,
+            "odoo_sale_order_id": odoo_sale_order_id,
+            "odoo_status": odoo_status,
+        },
+        trace_id=trace_id or new_trace_id(),
+        request_id=request_id,
+    )
+
+
 __all__ = [
     "Command",
     "new_trace_id",
     "new_request_id",
     "publish_product_command",
     "export_order_command",
+    "report_fulfillment_command",
 ]

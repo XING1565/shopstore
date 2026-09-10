@@ -34,6 +34,7 @@ __all__ = [
     "OrderLineView",
     "OrderView",
     "OrderList",
+    "OrderFulfillmentUpdate",
     "OrderExternalIdWriteback",
     "DomainEventView",
     "DomainEventList",
@@ -255,6 +256,20 @@ class OrderList(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class OrderFulfillmentUpdate(BaseModel):
+    """履约状态回传（Integration -> Core）。
+
+    ``status`` 为 Integration 将 Odoo 交货单状态映射后的目标订单状态
+    （Core 按订单状态机推进，非法 / 倒退迁移由 Core 拒绝）。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: OrderStatusLiteral
+    odoo_delivery_id: int | None = None
+    odoo_sale_order_id: int | None = None
 
 
 class OrderExternalIdWriteback(BaseModel):

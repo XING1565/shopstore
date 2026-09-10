@@ -9,12 +9,13 @@ from app.errors import AppError
 from app.models import Order, OrderLine, Product, Retailer
 from app.models.enums import OrderStatus, ProductStatus
 from app.models.state_machine import InvalidStateTransitionError
-from app.schemas import ErrorDetail, OrderCreate
+from app.schemas import ErrorDetail, OrderCreate, OrderFulfillmentUpdate
 
 __all__ = [
     "place_order",
     "get_order",
     "list_orders",
+    "report_fulfillment",
     "record_odoo_sale_order",
 ]
 
@@ -32,13 +33,20 @@ def _order_event_data(order: Order) -> dict:
         for line in order.lines
     ]
     total_minor = sum(line.unit_price_minor * line.quantity for line in order.lines)
+    external_ids: dict[str, int] = {}
+    if order.woo_order_id is not None:
+        external_ids["woo_order_id"] = order.woo_order_id
+    if order.odoo_sale_order_id is not None:
+        external_ids["odoo_sale_order_id"] = order.odoo_sale_order_id
+    if order.odoo_delivery_id is not None:
+        external_ids["odoo_delivery_id"] = order.odoo_delivery_id
     return {
         "marketplace_order_id": order.id,
         "retailer_id": order.retailer_id,
         "status": order.status.value,
         "lines": lines,
         "total": {"amount_minor": total_minor, "currency": order.currency},
-        "external_ids": {},
+        "external_ids": external_ids,
     }
 
 
@@ -129,6 +137,51 @@ def get_order(session: Session, order_id: str) -> Order:
     order = session.get(Order, order_id)
     if order is None:
         raise AppError(404, "not_found", "订单不存在")
+    return order
+
+
+def report_fulfillment(
+    session: Session,
+    order_id: str,
+    payload: OrderFulfillmentUpdate,
+    *,
+    request_id: str | None = None,
+) -> Order:
+    """回传履约状态：记录外部 ID 并按订单状态机推进。
+
+    幂等 / 防倒退语义由订单状态机保证：
+
+    - 重复回传（目标 == 当前状态）为无副作用空操作，返回当前订单；
+    - 乱序 / 倒退回传（如 ``shipped -> picking_ready``）被
+      :class:`InvalidStateTransitionError` 拒绝，此处转换为 409 并回滚外部 ID 写入。
+    """
+    order = get_order(session, order_id)
+    if payload.odoo_delivery_id is not None:
+        order.odoo_delivery_id = payload.odoo_delivery_id
+    if payload.odoo_sale_order_id is not None:
+        order.odoo_sale_order_id = payload.odoo_sale_order_id
+
+    old_status = order.status
+    target = OrderStatus(payload.status)
+    try:
+        order.transition_to(target, reason="odoo_fulfillment_report", actor="integration")
+    except InvalidStateTransitionError as exc:
+        session.rollback()
+        raise AppError(
+            409,
+            "conflict",
+            f"非法订单状态迁移：{exc.current} -> {exc.target}",
+            details=[ErrorDetail(field="status", reason=str(exc))],
+        )
+
+    if order.status is not old_status:
+        publish_event(
+            session,
+            EventType.ORDER_STATUS_CHANGED,
+            _order_event_data(order),
+            request_id=request_id,
+        )
+    session.commit()
     return order
 
 

@@ -13,7 +13,13 @@ from app.api.deps import (
     require_operator,
 )
 from app.errors import AppError
-from app.schemas import OrderCreate, OrderExternalIdWriteback, OrderList, OrderView
+from app.schemas import (
+    OrderCreate,
+    OrderExternalIdWriteback,
+    OrderFulfillmentUpdate,
+    OrderList,
+    OrderView,
+)
 from app.services import orders as order_service
 from app.services.serializers import order_to_view
 
@@ -91,6 +97,27 @@ def get_order(
         raise AppError(403, "forbidden", "无权查看其他买家订单")
     if principal.is_anonymous:
         raise AppError(403, "forbidden", "无权查看订单")
+    return order_to_view(order)
+
+
+@router.post(
+    "/orders/{order_id}/fulfillment",
+    response_model=OrderView,
+    response_model_exclude_none=True,
+    summary="回传履约状态（Integration -> Core，仅运营/系统）",
+    operation_id="reportFulfillment",
+)
+def report_fulfillment(
+    order_id: str,
+    payload: OrderFulfillmentUpdate,
+    session: SessionDep,
+    principal: PrincipalDep,
+    request: Request,
+) -> OrderView:
+    require_operator(principal)
+    order = order_service.report_fulfillment(
+        session, order_id, payload, request_id=_request_id(request)
+    )
     return order_to_view(order)
 
 
