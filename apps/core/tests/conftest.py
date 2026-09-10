@@ -23,6 +23,8 @@ import pytest  # noqa: E402
 
 from app.config import reset_settings  # noqa: E402
 
+import app.models  # noqa: E402,F401  确保业务模型注册进 Base.metadata
+
 
 @pytest.fixture
 def client():
@@ -36,3 +38,27 @@ def client():
     with TestClient(application) as c:
         yield c
     reset_settings()
+
+
+@pytest.fixture
+def session():
+    """函数级 SQLite 内存会话，用于模型与状态机测试（不依赖本机 PostgreSQL）。"""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.db import Base
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    s = factory()
+    try:
+        yield s
+    finally:
+        s.close()
+        engine.dispose()
