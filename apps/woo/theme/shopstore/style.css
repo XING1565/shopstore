@@ -1,0 +1,47 @@
+/*
+Theme Name: ShopStore
+Theme URI: https://github.com/XING1565/shopstore
+Author: shopstore-dev
+Author URI: https://github.com/XING1565/shopstore
+Description: B2B 前台 storefront 主题（ISSUE-0105）。品牌 / 商品浏览、认证买家批发价 / MOQ、无支付 checkout、订单状态投影（Core 状态）。依赖 marketplace-bridge 桥接插件（ISSUE-0104）。
+Version: 0.1.0
+Requires at least: 6.5
+Tested up to: 6.9
+Requires PHP: 8.1
+License: GNU General Public License v2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: shopstore
+Tags: e-commerce, woocommerce
+*/
+
+:root {
+	--ss-color-bg: #ffffff;
+	--ss-color-text: #1a1a1a;
+	--ss-color-muted: #6b7280;
+	--ss-color-border: #e5e7eb;
+	--ss-color-primary: #111827;
+	--ss-color-accent: #2563eb;
+	--ss-radius: 6px;
+}
+
+body {
+	margin: 0;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	color: var(--ss-color-text);
+	background: var(--ss-color-bg);
+	line-height: 1.6;
+}
+
+a {
+	color: var(--ss-color-accent);
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+img {
+	max-width: 100%;
+	height: auto;
+}

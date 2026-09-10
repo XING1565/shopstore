@@ -72,6 +72,8 @@ services:
       - web-data:/var/www/html
       # 后续 marketplace-bridge 插件目录（dev 代码实时可见）
       - ./plugins/marketplace-bridge:/var/www/html/wp-content/plugins/marketplace-bridge
+      # B2B 前台主题（dev 代码实时可见，ISSUE-0105）
+      - ./theme/shopstore:/var/www/html/wp-content/themes/shopstore
       # config 维护的无支付 checkout mu-plugin（只读挂载）
       - ./config/mu-plugins:/var/www/html/wp-content/mu-plugins:ro
       # provision 使用的设置/页面/种子数据（只读挂载）

@@ -1,0 +1,244 @@
+/*
+ * ShopStore 主题布局与 B2B 组件样式（ISSUE-0105）。
+ */
+
+.container {
+	max-width: 1120px;
+	margin: 0 auto;
+	padding: 0 1rem;
+}
+
+/* ---------- 页头 / 页脚 ---------- */
+.site-header {
+	border-bottom: 1px solid var(--ss-color-border);
+}
+
+.site-header .container {
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+	padding-top: 0.75rem;
+	padding-bottom: 0.75rem;
+}
+
+.site-branding {
+	font-weight: 700;
+	font-size: 1.125rem;
+}
+
+.site-title {
+	color: var(--ss-color-primary);
+	text-decoration: none;
+}
+
+.site-nav {
+	flex: 1;
+}
+
+.site-nav ul {
+	display: flex;
+	gap: 1.25rem;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.site-nav a {
+	color: var(--ss-color-text);
+}
+
+.site-account a {
+	color: var(--ss-color-primary);
+}
+
+.site-main {
+	padding: 2rem 0 3rem;
+}
+
+.site-footer {
+	border-top: 1px solid var(--ss-color-border);
+	padding: 1.25rem 0;
+	color: var(--ss-color-muted);
+	font-size: 0.875rem;
+}
+
+/* ---------- WooCommerce 商品网格 ---------- */
+ul.products {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 1.5rem;
+	list-style: none;
+	margin: 1.5rem 0 0;
+	padding: 0;
+}
+
+ul.products li.product {
+	border: 1px solid var(--ss-color-border);
+	border-radius: var(--ss-radius);
+	padding: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.ss-product-card__thumb a {
+	display: block;
+}
+
+.ss-product-card__thumb img {
+	border-radius: var(--ss-radius);
+}
+
+.ss-product-card__brand {
+	color: var(--ss-color-muted);
+	font-size: 0.8125rem;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.woocommerce-loop-product__title {
+	font-size: 1rem;
+	margin: 0;
+}
+
+.ss-product-card__moq {
+	font-size: 0.8125rem;
+	color: var(--ss-color-primary);
+}
+
+/* ---------- 批发价 / MOQ 投影（marketplace-bridge 输出） ---------- */
+.ss-bridge-wholesale {
+	color: var(--ss-color-primary);
+	font-weight: 600;
+}
+
+.ss-bridge-masked {
+	color: var(--ss-color-muted);
+}
+
+/* ---------- 认证状态提示 ---------- */
+.ss-status,
+.ss-pricing-notice,
+.ss-orders-message {
+	border: 1px solid var(--ss-color-border);
+	border-radius: var(--ss-radius);
+	padding: 0.75rem 1rem;
+	margin: 1rem 0;
+	font-size: 0.9375rem;
+}
+
+.ss-status--approved {
+	border-color: #86efac;
+	background: #f0fdf4;
+}
+
+.ss-status--pending,
+.ss-status--suspended {
+	border-color: #fde68a;
+	background: #fffbeb;
+}
+
+.ss-status--rejected {
+	border-color: #fca5a5;
+	background: #fef2f2;
+}
+
+.ss-status--guest,
+.ss-status--muted {
+	border-color: var(--ss-color-border);
+	background: #f9fafb;
+}
+
+.ss-pricing-notice {
+	border-color: #fde68a;
+	background: #fffbeb;
+}
+
+.ss-moq {
+	margin: 0.5rem 0;
+	font-size: 0.9375rem;
+}
+
+/* ---------- 订单状态投影 ---------- */
+.ss-orders {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 1rem 0;
+}
+
+.ss-orders th,
+.ss-orders td {
+	border-bottom: 1px solid var(--ss-color-border);
+	padding: 0.625rem 0.5rem;
+	text-align: left;
+	vertical-align: top;
+}
+
+.ss-orders th {
+	font-size: 0.8125rem;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var(--ss-color-muted);
+}
+
+.ss-order-status {
+	display: inline-block;
+	border-radius: 999px;
+	padding: 0.125rem 0.625rem;
+	font-size: 0.8125rem;
+	background: #f3f4f6;
+	color: var(--ss-color-text);
+}
+
+.ss-order-status--shipped,
+.ss-order-status--completed {
+	background: #f0fdf4;
+	color: #166534;
+}
+
+.ss-order-status--sync_failed,
+.ss-order-status--cancelled {
+	background: #fef2f2;
+	color: #991b1b;
+}
+
+.ss-orders-message--error {
+	border-color: #fca5a5;
+	background: #fef2f2;
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 720px) {
+	.ss-orders thead {
+		display: none;
+	}
+
+	.ss-orders,
+	.ss-orders tbody,
+	.ss-orders tr,
+	.ss-orders td {
+		display: block;
+		width: 100%;
+	}
+
+	.ss-orders tr {
+		border: 1px solid var(--ss-color-border);
+		border-radius: var(--ss-radius);
+		margin-bottom: 1rem;
+		padding: 0.5rem;
+	}
+
+	.ss-orders td {
+		border-bottom: none;
+		padding: 0.25rem 0;
+	}
+
+	.ss-orders td::before {
+		content: attr(data-label);
+		display: block;
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		color: var(--ss-color-muted);
+	}
+}

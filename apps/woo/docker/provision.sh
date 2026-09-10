@@ -115,7 +115,14 @@ ensure_user() {
 ensure_user "$WOO_ADMIN_USER" "$WOO_ADMIN_EMAIL" administrator "$WOO_ADMIN_PASSWORD"
 ensure_user "$WOO_BUYER_USERNAME" "$WOO_BUYER_EMAIL" customer "$WOO_BUYER_PASSWORD"
 
-# ---- 5) Flush rewrites after pages/products exist ----
+# ---- 5) Activate marketplace theme + bridge plugin (dev / ISSUE-0104 + ISSUE-0105) ----
+# 主题与插件目录已 bind-mount 进容器；激活是数据库层一步，缺失时仅告警不阻断。
+"${WP[@]}" theme activate shopstore >/dev/null 2>&1 \
+  || log "shopstore theme not found; skipping activation"
+"${WP[@]}" plugin activate marketplace-bridge >/dev/null 2>&1 \
+  || log "marketplace-bridge plugin not found; skipping activation"
+
+# ---- 6) Flush rewrites after pages/products exist ----
 "${WP[@]}" rewrite flush --hard >/dev/null 2>&1 || true
 
 # Files created as root must be readable/writable by www-data (apache).
