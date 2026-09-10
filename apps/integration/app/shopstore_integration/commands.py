@@ -71,16 +71,33 @@ def export_order_command(
     *,
     marketplace_order_id: str,
     lines: list[dict[str, Any]],
+    retailer_ref: Optional[str] = None,
+    retailer_name: Optional[str] = None,
+    retailer_email: Optional[str] = None,
     trace_id: Optional[str] = None,
     request_id: Optional[str] = None,
 ) -> Command:
-    """构造「导出 Core 订单到 Odoo」命令（阶段 0 不实现正式同步）。"""
+    """构造「导出 Core 订单到 Odoo 销售单」命令。
+
+    ``retailer_ref`` 是 Core 买家映射到 Odoo partner 的稳定业务键（``res.partner.ref``）；
+    ``retailer_name`` / ``retailer_email`` 用于 partner 缺失时按映射规则创建。
+    """
+    payload: dict[str, Any] = {
+        "marketplace_order_id": marketplace_order_id,
+        "lines": lines,
+    }
+    if retailer_ref:
+        payload["retailer_ref"] = retailer_ref
+    if retailer_name:
+        payload["retailer_name"] = retailer_name
+    if retailer_email:
+        payload["retailer_email"] = retailer_email
     return Command(
         command_type="commerce.order.export",
         idempotency_key=IdempotencyKey(
             scope="core", entity="order", action="export", source_id=marketplace_order_id
         ),
-        payload={"marketplace_order_id": marketplace_order_id, "lines": lines},
+        payload=payload,
         trace_id=trace_id or new_trace_id(),
         request_id=request_id,
     )

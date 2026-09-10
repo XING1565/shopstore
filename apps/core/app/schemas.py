@@ -34,6 +34,9 @@ __all__ = [
     "OrderLineView",
     "OrderView",
     "OrderList",
+    "OrderExternalIdWriteback",
+    "DomainEventView",
+    "DomainEventList",
     "to_utc_iso",
 ]
 
@@ -252,3 +255,36 @@ class OrderList(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class OrderExternalIdWriteback(BaseModel):
+    """Integration 写回订单外部 ID 映射的请求体（至少提供一项）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    odoo_sale_order_id: int | None = None
+    woo_order_id: int | None = None
+    odoo_delivery_id: int | None = None
+
+
+class DomainEventView(BaseModel):
+    """领域事件 outbox 条目视图（供 Integration 轮询）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    event_id: str
+    event_type: str
+    event_version: str
+    source: str
+    occurred_at: str
+    trace_id: str
+    request_id: str | None = None
+    data: dict
+
+
+class DomainEventList(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[DomainEventView]
+    total: int
+    limit: int

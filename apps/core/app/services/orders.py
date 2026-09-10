@@ -8,12 +8,14 @@ from app.domain.events import EventType, publish_event
 from app.errors import AppError
 from app.models import Order, OrderLine, Product, Retailer
 from app.models.enums import OrderStatus, ProductStatus
+from app.models.state_machine import InvalidStateTransitionError
 from app.schemas import ErrorDetail, OrderCreate
 
 __all__ = [
     "place_order",
     "get_order",
     "list_orders",
+    "record_odoo_sale_order",
 ]
 
 
@@ -127,6 +129,56 @@ def get_order(session: Session, order_id: str) -> Order:
     order = session.get(Order, order_id)
     if order is None:
         raise AppError(404, "not_found", "订单不存在")
+    return order
+
+
+def record_odoo_sale_order(
+    session: Session,
+    order_id: str,
+    odoo_sale_order_id: int,
+    *,
+    request_id: str | None = None,
+) -> Order:
+    """写回 Odoo 销售单 ID 并把订单推进到 ``sent_to_odoo``（Integration 调用）。
+
+    幂等语义：
+
+    - 订单已映射到同一 ``odoo_sale_order_id`` → 直接返回，无副作用；
+    - 订单已映射到不同 ID → 409（同一订单不应出现两个销售单）；
+    - 首次写回 → 记录映射并 ``submitted -> sent_to_odoo``（若订单已越过该状态，
+      视为已同步，保持现状；仅拒绝真实的状态倒退）。
+    """
+    order = get_order(session, order_id)
+    if order.odoo_sale_order_id is not None:
+        if order.odoo_sale_order_id != odoo_sale_order_id:
+            raise AppError(
+                409,
+                "conflict",
+                "订单已映射到不同的 Odoo 销售单",
+                details=[
+                    ErrorDetail(
+                        field="odoo_sale_order_id",
+                        reason=(
+                            f"订单 {order_id} 已映射到 "
+                            f"{order.odoo_sale_order_id}，收到 {odoo_sale_order_id}"
+                        ),
+                    )
+                ],
+            )
+        return order
+
+    order.odoo_sale_order_id = odoo_sale_order_id
+    try:
+        order.transition_to(
+            OrderStatus.sent_to_odoo,
+            reason="odoo sale order created",
+            actor="integration",
+        )
+    except InvalidStateTransitionError:
+        # 订单已越过 sent_to_odoo（理论上不会发生在 odoo_sale_order_id 为空时），
+        # 保留映射但不再推进状态；状态倒退场景由状态机拒绝。
+        pass
+    session.commit()
     return order
 
 

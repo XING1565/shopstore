@@ -31,10 +31,36 @@ Core Command -> Integration Task -> Adapter -> Mock Result
 | `tasks/base.py` | 同步任务抽象 `SyncTask`（封装幂等、错误捕获、日志）与 `TaskResult` |
 | `tasks/dispatch.py` | 按 `command_type` 分派命令的 `TaskDispatcher` |
 | `tasks/publish_product.py` | 示例任务：发布商品到 Woo / Odoo |
-| `tasks/export_order.py` | 示例任务：导出订单到 Odoo（占位） |
+| `tasks/export_order.py` | 订单导出任务：Core 订单 → Odoo 销售单 |
 | `adapters/woo.py` | `WooAdapter` 接口 |
 | `adapters/odoo.py` | `OdooAdapter` 接口 |
 | `adapters/mock.py` | `MockAdapter`（实现两个接口，可注入延迟 / 错误） |
+
+## 阶段 1 已交付（ISSUE-0107）
+
+真实链路（Core 订单命令 → Odoo 销售单创建）：
+
+```text
+Core commerce.order.created 事件
+  -> CoreClient 轮询 GET /api/v1/events
+  -> 去重（Core 订单已有 odoo_sale_order_id 则跳过）
+  -> ExportOrderTask（sync_jobs 幂等键 + Odoo client_order_ref 去重）
+  -> HttpOdooAdapter 创建销售单
+  -> CoreClient 写回 odoo_sale_order_id（POST /orders/{id}/external-ids）
+  -> CoreClient ack 事件（POST /events/{id}/ack）
+```
+
+| 模块 | 职责 |
+| --- | --- |
+| `db.py` | Integration 数据库引擎 / 会话（`sync_jobs` 任务表，`INTEGRATION_DATABASE_URL`） |
+| `sync_jobs.py` | `SyncJob` 模型 + `SyncJobsStore`（数据库幂等存储，实现 `IdempotencyStore`） |
+| `adapters/odoo_http.py` | `HttpOdooAdapter`（真实 Odoo JSON-RPC：partner/SKU/订单映射 + 幂等去重） |
+| `core_client.py` | `CoreClient`（轮询事件 / ack / 写回外部 ID / 读买家） |
+| `worker.py` | `OrderExportWorker`（编排：轮询 → 去重 → 导出 → 写回 → ack，失败留待重试） |
+
+幂等键 `core.order.export.{marketplace_order_id}` 持久化到 `sync_jobs`；
+同一订单重复触发由三层去重（Core 映射检查、`sync_jobs` 幂等键、Odoo
+`client_order_ref` 查找）保证不重复创建销售单。
 
 ## 契约对齐
 
