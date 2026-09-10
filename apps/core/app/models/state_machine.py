@@ -14,13 +14,14 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable
 
-from .enums import OrderStatus, RetailerStatus
+from .enums import OrderStatus, ProductStatus, RetailerStatus
 
 __all__ = [
     "InvalidStateTransitionError",
     "ORDER_TRANSITIONS",
     "ORDER_RESUMABLE_STATES",
     "RETAILER_TRANSITIONS",
+    "PRODUCT_TRANSITIONS",
 ]
 
 logger = logging.getLogger("app.state_machine")
@@ -91,4 +92,11 @@ RETAILER_TRANSITIONS: dict[RetailerStatus, set[RetailerStatus]] = {
     RetailerStatus.approved: {RetailerStatus.suspended},
     RetailerStatus.suspended: {RetailerStatus.approved},
     RetailerStatus.rejected: set(),
+}
+
+# 商品发布状态机（draft -> published -> archived，单向）
+PRODUCT_TRANSITIONS: dict[ProductStatus, set[ProductStatus]] = {
+    ProductStatus.draft: {ProductStatus.published},
+    ProductStatus.published: {ProductStatus.archived},
+    ProductStatus.archived: set(),
 }

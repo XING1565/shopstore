@@ -62,3 +62,43 @@ def session():
     finally:
         s.close()
         engine.dispose()
+
+
+@pytest.fixture
+def db_client():
+    """带持久内存库的 TestClient：业务表可跨请求读写。
+
+    用 StaticPool 单连接 SQLite 内存库替换 app.db 的引擎，使 API 请求之间的
+    数据得以保留，从而测试注册 / 审核 / 下单等写后读流程。
+    """
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    import app.db as db_mod
+    from app.db import Base
+
+    reset_settings()
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    db_mod._engine = engine
+    db_mod._session_factory = factory
+
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    application = create_app()
+    with TestClient(application) as c:
+        yield c
+
+    db_mod._engine = None
+    db_mod._session_factory = None
+    engine.dispose()
+    reset_settings()

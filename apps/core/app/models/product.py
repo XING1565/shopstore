@@ -9,6 +9,7 @@ from app.db import Base
 
 from .base import TimestampMixin, new_uuid, sa_enum
 from .enums import ProductStatus
+from .state_machine import PRODUCT_TRANSITIONS, InvalidStateTransitionError, logger
 
 __all__ = ["Product"]
 
@@ -53,3 +54,29 @@ class Product(TimestampMixin, Base):
     odoo_product_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True, index=True
     )
+
+    def transition_to(self, target: ProductStatus) -> None:
+        """按商品状态机单向推进（draft -> published -> archived）；非法迁移被拒绝。"""
+        target = ProductStatus(target)
+        if target is self.status:
+            return
+        allowed = PRODUCT_TRANSITIONS.get(self.status, set())
+        if target not in allowed:
+            logger.warning(
+                "拒绝非法商品状态迁移 product_id=%s from=%s to=%s",
+                self.id,
+                self.status.value,
+                target.value,
+            )
+            raise InvalidStateTransitionError(
+                "product",
+                self.id,
+                self.status.value,
+                target.value,
+                (a.value for a in allowed),
+            )
+        old = self.status
+        self.status = target
+        logger.info(
+            "商品状态迁移 product_id=%s %s -> %s", self.id, old.value, target.value
+        )
