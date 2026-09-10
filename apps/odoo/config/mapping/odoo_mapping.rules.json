@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "owner": "config",
+  "issue": "ISSUE-0106",
+  "description": "Odoo-side cross-system mapping rules for the marketplace connector. Consumed by ISSUE-0107 (Core order command -> Odoo sale order). Human-readable companion: apps/odoo/config/MAPPING.md.",
+  "entities": {
+    "retailer": {
+      "core_entity": "Retailer",
+      "odoo_model": "res.partner",
+      "match_key": {
+        "field": "ref",
+        "source": "core.retailer.external_id",
+        "note": "ref is the stable business key; never match on name."
+      },
+      "lookup_domain": [["ref", "=", "<retailer_external_id>"]],
+      "required_fields": {
+        "company_type": "company",
+        "customer_rank": ">=1"
+      },
+      "unique": true,
+      "create_when_missing": true
+    },
+    "product": {
+      "core_entity": "Product",
+      "odoo_model": "product.product",
+      "match_key": {
+        "field": "default_code",
+        "source": "product.sku",
+        "note": "SKU is the stable business key shared by Core, Woo and Odoo."
+      },
+      "lookup_domain": [["default_code", "=", "<sku>"]],
+      "required_fields": {
+        "sale_ok": true,
+        "is_storable": true
+      },
+      "unique": true
+    },
+    "sale_order": {
+      "core_entity": "Order",
+      "odoo_model": "sale.order",
+      "idempotency_key_field": "client_order_ref",
+      "idempotency_key_source": "core.order.marketplace_order_id",
+      "lookup_domain": [["client_order_ref", "=", "<marketplace_order_id>"]],
+      "unique": true,
+      "create_fields": {
+        "name": "optional; omit to let Odoo assign the next SO sequence",
+        "client_order_ref": "marketplace_order_id",
+        "partner_id": "res.partner.id resolved via retailer.ref",
+        "partner_invoice_id": "res.partner.id",
+        "partner_shipping_id": "res.partner.id",
+        "order_line": "[(0, 0, {product_id, product_uom_qty, price_unit})]"
+      },
+      "confirm_method": "action_confirm",
+      "confirmed_states": ["sale", "done"]
+    },
+    "delivery": {
+      "core_entity": "Order.odoo_delivery_id",
+      "odoo_model": "stock.picking",
+      "link_from_sale_order": "sale.order.picking_ids where picking_type_id.code == 'outgoing'",
+      "generated_by": "sale.order.action_confirm() with warehouse.delivery_steps == 'ship_only'",
+      "ship_method": "stock.picking.button_validate()",
+      "shipped_states": ["done"],
+      "external_id_field": "name",
+      "note": "Stage 1 allows the warehouse to validate (ship) manually; status flows back to Core via ISSUE-0108."
+    }
+  },
+  "flow": [
+    "resolve/create res.partner by core retailer external_id (ref)",
+    "create sale.order with client_order_ref = marketplace_order_id (idempotent lookup first)",
+    "call sale.order.action_confirm()",
+    "read delivery from sale.order.picking_ids (outgoing)",
+    "warehouse validates the delivery to ship; record stock.picking.name back to Core as odoo_delivery_id"
+  ],
+  "canonical_fixtures": {
+    "customers": [
+      { "ref": "DEMO-RTL-001", "name": "Demo Retailer (Approved)", "email": "retailer_approved@example.test" },
+      { "ref": "DEMO-RTL-002", "name": "Demo Retailer (Pending)", "email": "retailer_pending@example.test" }
+    ],
+    "products": [
+      { "sku": "DEMO-SKU-001", "name": "Demo Product A - White Ceramic Mug", "initial_qty": 120 },
+      { "sku": "DEMO-SKU-002", "name": "Demo Product B - Canvas Tote Bag", "initial_qty": 80 }
+    ],
+    "demo_orders": [
+      { "name": "SO-DEMO-001", "client_order_ref": "DEMO-MKT-ORDER-001", "purpose": "ISSUE-0004 confirm + delivery generation" },
+      { "name": "SO-DEMO-SHIP-001", "client_order_ref": "DEMO-MKT-ORDER-001-SHIP", "purpose": "ISSUE-0106 confirm + delivery + ship" }
+    ]
+  }
+}

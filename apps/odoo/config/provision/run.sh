@@ -4,7 +4,7 @@
 # ops（ISSUE-0010）后续提供项目级一键脚本；本脚本只覆盖 Odoo 自身生命周期。
 #
 # 前置：Docker + Docker Compose v2；复制 infra/env/odoo.env.example -> apps/odoo/config/docker/.env 并填值。
-# 用法：bash apps/odoo/config/provision/run.sh <all|init|up|provision|verify|login-check|status|logs|down>
+# 用法：bash apps/odoo/config/provision/run.sh <all|init|up|provision|verify|fulfill|login-check|status|logs|down>
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -55,6 +55,10 @@ case "$ACTION" in
     echo "==> 登录校验（login_check.py）"
     compose exec -T odoo sh -c 'python3 /opt/odoo-provision/login_check.py'
     ;;
+  fulfill)
+    echo "==> 阶段一映射与履约校验（verify_fulfillment.py）"
+    odoo_shell verify_fulfillment.py
+    ;;
   login-check)
     compose exec -T odoo sh -c 'python3 /opt/odoo-provision/login_check.py'
     ;;
@@ -62,6 +66,7 @@ case "$ACTION" in
     "$0" init
     "$0" provision
     "$0" verify
+    "$0" fulfill
     ;;
   status)
     compose ps
