@@ -143,6 +143,21 @@ def test_unknown_sku_rejected(db_client) -> None:
     assert resp.status_code == 400
 
 
+def test_order_records_woo_order_id_from_payload(db_client) -> None:
+    _seed_product(db_client, moq=10)
+    buyer = _register_buyer(db_client, approve=True)
+    resp = db_client.post(
+        "/api/v1/orders",
+        json={
+            "lines": [{"sku": "DEMO-SKU-001", "quantity": 10}],
+            "woo_order_id": 789,
+        },
+        headers=_buyer_headers(buyer["retailer_id"]),
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["external_ids"]["woo_order_id"] == 789
+
+
 def test_cannot_order_unpublished_product(db_client) -> None:
     brand = _seed_brand()
     resp = db_client.post(

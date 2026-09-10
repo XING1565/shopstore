@@ -231,8 +231,17 @@ final class ShopStore_Bridge_Core_Client {
 
 	/**
 	 * 无支付下单（以买家身份调用，Core 做 MOQ 校验）。data 为 OrderView。
+	 *
+	 * @param string   $retailer_id     买家主键。
+	 * @param array    $lines           Core 订单行（sku + quantity）。
+	 * @param string   $idempotency_key 幂等键。
+	 * @param int|null $woo_order_id    Woo 订单号，随请求发送供 Core 记录回写。
 	 */
-	public function place_order( string $retailer_id, array $lines, string $idempotency_key ): array {
+	public function place_order( string $retailer_id, array $lines, string $idempotency_key, ?int $woo_order_id = null ): array {
+		$body = array( 'lines' => $lines );
+		if ( null !== $woo_order_id ) {
+			$body['woo_order_id'] = $woo_order_id;
+		}
 		return $this->request(
 			'POST',
 			'/orders',
@@ -240,7 +249,7 @@ final class ShopStore_Bridge_Core_Client {
 				'role'            => self::ROLE_RETAILER,
 				'retailer_id'     => $retailer_id,
 				'idempotency_key' => $idempotency_key,
-				'body'            => array( 'lines' => $lines ),
+				'body'            => $body,
 			)
 		);
 	}

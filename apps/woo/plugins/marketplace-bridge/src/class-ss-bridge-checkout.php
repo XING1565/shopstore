@@ -167,8 +167,9 @@ final class ShopStore_Bridge_Checkout {
 			);
 		}
 
-		$idempotency_key = 'woo.order.create.' . $order->get_id();
-		$result          = $this->client->place_order( $retailer_id, $lines, $idempotency_key );
+		$woo_order_id    = (int) $order->get_id();
+		$idempotency_key = 'woo.order.create.' . $woo_order_id;
+		$result          = $this->client->place_order( $retailer_id, $lines, $idempotency_key, $woo_order_id );
 
 		if ( $result['ok'] && isset( $result['data']['marketplace_order_id'] ) ) {
 			$marketplace_order_id = (string) $result['data']['marketplace_order_id'];

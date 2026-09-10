@@ -136,6 +136,17 @@ def writeback_external_ids(
     request: Request,
 ) -> OrderView:
     require_operator(principal)
+    if payload.woo_order_id is None and payload.odoo_sale_order_id is None:
+        raise AppError(400, "bad_request", "未提供可写回的外部 ID")
+
+    order = None
+    if payload.woo_order_id is not None:
+        order = order_service.record_woo_order(
+            session,
+            order_id,
+            payload.woo_order_id,
+            request_id=_request_id(request),
+        )
     if payload.odoo_sale_order_id is not None:
         order = order_service.record_odoo_sale_order(
             session,
@@ -143,7 +154,4 @@ def writeback_external_ids(
             payload.odoo_sale_order_id,
             request_id=_request_id(request),
         )
-    else:
-        order = order_service.get_order(session, order_id)
-        raise AppError(400, "bad_request", "未提供可写回的外部 ID")
     return order_to_view(order)
