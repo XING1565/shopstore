@@ -1,0 +1,8 @@
+# ShopStore 前台主题元数据（供 CI 做 legacy parity 检查）
+name: shopstore
+type: wordpress-theme
+version: 0.1.0
+owner: dev
+# 本项目（shopstore）为阶段 0/1 全新构建，不存在可对照的旧站点主题源码；
+# 因此 legacy_source 置空。CI 检测到 null 时应跳过 legacy parity 检查。
+legacy_source: null
