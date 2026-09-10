@@ -26,6 +26,10 @@ __all__ = [
     "RetailerExternalIdWriteback",
     "RetailerView",
     "RetailerList",
+    "BrandCreate",
+    "BrandUpdate",
+    "BrandView",
+    "BrandList",
     "ProductCreate",
     "ProductUpdate",
     "ProductView",
@@ -43,6 +47,7 @@ __all__ = [
 ]
 
 RetailerStatusLiteral = Literal["pending", "approved", "rejected", "suspended"]
+BrandStatusLiteral = Literal["active", "inactive"]
 ProductStatusLiteral = Literal["draft", "published", "archived"]
 OrderStatusLiteral = Literal[
     "draft",
@@ -176,6 +181,44 @@ class RetailerView(BaseModel):
     review_note: str | None = None
     created_at: str
     updated_at: str
+
+
+class BrandCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+    logo_url: str | None = Field(default=None, max_length=2048)
+
+
+class BrandUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+    logo_url: str | None = Field(default=None, max_length=2048)
+    status: BrandStatusLiteral | None = None
+
+
+class BrandView(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    brand_id: str
+    name: str
+    description: str | None = None
+    logo_url: str | None = None
+    status: BrandStatusLiteral
+    created_at: str
+    updated_at: str
+
+
+class BrandList(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[BrandView]
+    total: int
+    limit: int
+    offset: int
 
 
 class ProductCreate(BaseModel):

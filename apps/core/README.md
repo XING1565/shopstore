@@ -87,6 +87,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 | `/api/v1/retailers/{id}` | GET | 查询单个买家 | 运营 / 本人 |
 | `/api/v1/retailers/{id}/approve` | POST | 审核通过（`pending → approved`） | 运营 |
 | `/api/v1/retailers/{id}/reject` | POST | 审核拒绝（`pending → rejected`） | 运营 |
+| `/api/v1/brands` | GET / POST | 分页列出 / 创建品牌 | 运营 |
+| `/api/v1/brands/{id}` | GET / PATCH / DELETE | 查询 / 更新 / 删除（仅无商品时） | 运营 |
 | `/api/v1/products` | GET / POST | 分页列出 / 创建草稿 | 查询公开；创建需运营 |
 | `/api/v1/products/{id}` | GET / PATCH | 查询 / 更新 | 查询公开；更新需运营 |
 | `/api/v1/products/{id}/publish` | POST | 发布（`draft → published`） | 运营 |

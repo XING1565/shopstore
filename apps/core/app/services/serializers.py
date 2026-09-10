@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from app.models import Order, Product, Retailer
+from app.models import Brand, Order, Product, Retailer
 from app.schemas import (
+    BrandView,
     Money,
     OrderExternalIds,
     OrderLineView,
@@ -15,10 +16,23 @@ from app.schemas import (
 )
 
 __all__ = [
+    "brand_to_view",
     "retailer_to_view",
     "product_to_view",
     "order_to_view",
 ]
+
+
+def brand_to_view(b: Brand) -> BrandView:
+    return BrandView(
+        brand_id=b.id,
+        name=b.name,
+        description=b.description,
+        logo_url=b.logo_url,
+        status=b.status.value,
+        created_at=to_utc_iso(b.created_at),
+        updated_at=to_utc_iso(b.updated_at),
+    )
 
 
 def retailer_to_view(r: Retailer) -> RetailerView:

@@ -20,6 +20,7 @@ packages/contracts/
     timestamp.schema.json
     error.schema.json
     external-ids.schema.json   # 外部 ID 映射与 SKU 规则
+    brand.schema.json          # Core Brand 品牌档案
     product.schema.json        # Core Product（批发价 / MOQ 真相）
     product-projections.schema.json  # Woo / Odoo 投影边界
     order.schema.json          # Marketplace Order 骨架
