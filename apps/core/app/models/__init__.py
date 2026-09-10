@@ -9,6 +9,7 @@ from app.db import Base
 
 from .brand import Brand
 from .order import Order, OrderLine, OrderStatusEvent
+from .outbox import OutboxEvent
 from .product import Product
 from .retailer import Retailer
 
@@ -18,6 +19,7 @@ __all__ = [
     "Order",
     "OrderLine",
     "OrderStatusEvent",
+    "OutboxEvent",
     "Product",
     "Retailer",
 ]

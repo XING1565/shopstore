@@ -78,6 +78,41 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 - 错误响应统一为 `{"error": {"code", "message", "details"?, "request_id"?}}`，
   见 `packages/contracts/schemas/error.schema.json`。
 
+## 阶段 1 API（ISSUE-0103）
+
+| 端点 | 方法 | 说明 | 访问控制 |
+| --- | --- | --- | --- |
+| `/api/v1/retailers` | POST | 注册买家（默认 `pending`） | 公开 |
+| `/api/v1/retailers` | GET | 分页列出买家 | 运营 |
+| `/api/v1/retailers/{id}` | GET | 查询单个买家 | 运营 / 本人 |
+| `/api/v1/retailers/{id}/approve` | POST | 审核通过（`pending → approved`） | 运营 |
+| `/api/v1/retailers/{id}/reject` | POST | 审核拒绝（`pending → rejected`） | 运营 |
+| `/api/v1/products` | GET / POST | 分页列出 / 创建草稿 | 查询公开；创建需运营 |
+| `/api/v1/products/{id}` | GET / PATCH | 查询 / 更新 | 查询公开；更新需运营 |
+| `/api/v1/products/{id}/publish` | POST | 发布（`draft → published`） | 运营 |
+| `/api/v1/products/{id}/archive` | POST | 下架（`published → archived`） | 运营 |
+| `/api/v1/orders` | POST | 无支付下单（MOQ 校验，`Submitted`） | 已认证买家 |
+| `/api/v1/orders` | GET | 分页列出订单 | 运营全部 / 买家本人 |
+| `/api/v1/orders/{id}` | GET | 查询订单 | 运营 / 本人 |
+
+### 身份模型（阶段 1 轻量 header，后续替换为 JWT / OIDC）
+
+| Header | 取值 | 说明 |
+| --- | --- | --- |
+| `X-Actor-Role` | `operator` / `retailer` | 缺省为匿名 |
+| `X-Retailer-Id` | UUID v4 | role=retailer 时必填 |
+| `X-Operator-Name` | string | 可选，运营审计人 |
+
+鉴权语义（PRD §7）：未认证买家不可见批发价与 MOQ、不能下单；已认证（`approved`）
+买家可见批发价 / MOQ、可下单；运营可审核买家、维护商品、查看全部。
+
+### 领域事件
+
+Core 以 outbox 模式（`domain_events` 表）发布领域事件，不 import Woo / Odoo Adapter。
+事件类型：`identity.retailer.registered/approved/rejected`、
+`catalog.product.created/updated/published/archived`、`commerce.order.created`。
+Integration（ISSUE-0107 等）消费并投影到 Woo / Odoo。
+
 ## 测试
 
 ```powershell
