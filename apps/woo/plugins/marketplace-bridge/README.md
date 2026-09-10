@@ -62,8 +62,10 @@ docker compose exec woo wp --allow-root --path=/var/www/html plugin activate mar
 ### 下单拦截 + 桥接（checkout）
 
 - `woocommerce_after_checkout_validation`：未登录 / 未认证 / 数量低于 MOQ → 桥接层拦截并提示原因。
-- `woocommerce_checkout_order_processed`：把订单行提交 Core（`POST /api/v1/orders`），
-  写回 `_shopstore_marketplace_order_id` 元数据；失败则将 Woo 订单置 `failed`。
+- `woocommerce_checkout_order_processed`（classic checkout 短代码路径）与
+  `woocommerce_store_api_checkout_order_processed`（block checkout / Store API 路径）：
+  把订单行提交 Core（`POST /api/v1/orders`），写回 `_shopstore_marketplace_order_id`
+  元数据；失败则将 Woo 订单置 `failed`。
 - 幂等键 `woo.order.create.{woo_order_id}`，重试不重复创建 Core 订单。
 - 对外公开 `ShopStore_Bridge_Checkout::place_core_order( WC_Order $order, int $user_id )`
   作为「Woo 订单 → Core 下单」的桥接接口，供 ISSUE-0105 / 重试逻辑复用。
@@ -91,6 +93,9 @@ docker compose exec woo wp --allow-root --path=/var/www/html plugin activate mar
   买家注册时由 ISSUE-0105 建立。
 - **货币换算**：Core 返回 `amount_minor + currency`（阶段 1 为 USD），插件只按货币最小单位
   指数做格式化展示，不做跨币种换算（与 `conventions.md` §7 的 NOT_TESTED 一致）。
-- **区块结账（Blocks Checkout）**：当前接的是经典结账短代码钩子
-  （`woocommerce_checkout_order_processed`），Blocks 结账的等价钩子留待 ISSUE-0105 接入。
+- **区块结账下单前拦截**：`woocommerce_after_checkout_validation` 只在 classic checkout
+  短代码路径触发，block checkout（Store API）不触发该钩子，故认证 / MOQ 的下单前拦截
+  仅覆盖 classic 路径；block checkout 的下单桥接（订单创建后回 Core）已接入
+  `woocommerce_store_api_checkout_order_processed`。block checkout 路径的认证 / MOQ
+  前置拦截留待后续 issue。
 - 未在本机运行 Docker 验证（本 issue 交付以代码为准；端到端验收见 ISSUE-0110）。

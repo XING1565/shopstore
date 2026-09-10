@@ -4,7 +4,8 @@
  *
  * 1) 下单前拦截（woocommerce_after_checkout_validation）：强制走 Core 校验，
  *    未登录 / 未认证（非 approved）或数量低于 MOQ 时在桥接层拒绝并提示原因。
- * 2) Woo 订单创建后（woocommerce_checkout_order_processed）：以买家身份把订单行提交到
+ * 2) Woo 订单创建后（classic 的 woocommerce_checkout_order_processed，或 block checkout
+ *    的 woocommerce_store_api_checkout_order_processed）：以买家身份把订单行提交到
  *    Core（POST /api/v1/orders），并把 marketplace_order_id 写回 Woo 订单元数据。
  *    幂等键 `woo.order.create.{woo_order_id}`，重试不重复创建。
  *
@@ -32,6 +33,7 @@ final class ShopStore_Bridge_Checkout {
 
 		add_action( 'woocommerce_after_checkout_validation', array( $this, 'validate_checkout' ), 10, 2 );
 		add_action( 'woocommerce_checkout_order_processed', array( $this, 'after_order_processed' ), 20, 3 );
+		add_action( 'woocommerce_store_api_checkout_order_processed', array( $this, 'after_store_api_order_processed' ), 20, 1 );
 	}
 
 	/**
@@ -99,13 +101,33 @@ final class ShopStore_Bridge_Checkout {
 	}
 
 	/**
-	 * Woo 订单创建后：把订单行提交到 Core，写回 marketplace_order_id。
+	 * Woo 订单创建后（classic checkout 短代码路径）：把订单行提交到 Core，写回 marketplace_order_id。
 	 *
 	 * @param int       $order_id    Woo 订单 ID。
 	 * @param array     $posted_data 结账提交数据。
 	 * @param WC_Order  $order       订单对象。
 	 */
 	public function after_order_processed( $order_id, $posted_data, $order ) {
+		$this->handle_order_processed( $order );
+	}
+
+	/**
+	 * Woo 订单创建后（Store API / block checkout 路径）：把订单行提交到 Core，写回 marketplace_order_id。
+	 *
+	 * Store API 钩子传入的是 WC_Order 对象（单参数），与 classic 钩子的签名不同。
+	 *
+	 * @param WC_Order $order 订单对象。
+	 */
+	public function after_store_api_order_processed( $order ) {
+		$this->handle_order_processed( $order );
+	}
+
+	/**
+	 * 两个 checkout 路径（classic / block）共用的下单桥接：把订单行提交到 Core，写回 marketplace_order_id。
+	 *
+	 * @param WC_Order|mixed $order 订单对象；非 WC_Order 时直接忽略。
+	 */
+	private function handle_order_processed( $order ) {
 		$user_id = get_current_user_id();
 		if ( ! $user_id || ! ( $order instanceof WC_Order ) ) {
 			return;
