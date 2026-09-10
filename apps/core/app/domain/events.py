@@ -38,6 +38,7 @@ class EventType:
     PRODUCT_ARCHIVED = "catalog.product.archived"
 
     ORDER_CREATED = "commerce.order.created"
+    ORDER_STATUS_CHANGED = "commerce.order.status_changed"
 
 
 def publish_event(

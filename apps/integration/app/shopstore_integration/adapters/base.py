@@ -38,6 +38,7 @@ class BaseAdapter(ABC):
         request_id: str,
         trace_id: Optional[str] = None,
         json: Optional[Any] = None,
+        headers: Optional[dict[str, str]] = None,
     ) -> Any:
         return self.client.request(
             method,
@@ -45,6 +46,7 @@ class BaseAdapter(ABC):
             request_id=request_id,
             trace_id=trace_id,
             json=json,
+            headers=headers,
         )
 
     @abstractmethod

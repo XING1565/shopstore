@@ -116,4 +116,32 @@ class MockAdapter:
         return {"odoo_delivery_id": odoo_delivery_id, "status": "picking_ready"}
 
 
-__all__ = ["MockAdapter"]
+class MockCoreAdapter:
+    """实现 :class:`CoreAdapter` 的测试替身（记录调用，可注入拒绝）。"""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, tuple[Any, ...]]] = []
+        self._reject_with: Optional[IntegrationError] = None
+
+    def health_check(self, *, request_id: str) -> bool:
+        return True
+
+    def report_fulfillment(
+        self,
+        marketplace_order_id: str,
+        *,
+        status: str,
+        odoo_delivery_id: Optional[int] = None,
+        odoo_sale_order_id: Optional[int] = None,
+        request_id: str,
+        trace_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        self.calls.append(
+            ("report_fulfillment", marketplace_order_id, status, odoo_delivery_id, odoo_sale_order_id)
+        )
+        if self._reject_with is not None:
+            raise self._reject_with
+        return {"marketplace_order_id": marketplace_order_id, "status": status}
+
+
+__all__ = ["MockAdapter", "MockCoreAdapter"]

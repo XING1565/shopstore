@@ -8,8 +8,17 @@
 from __future__ import annotations
 
 from .base import BaseAdapter
-from .mock import MockAdapter
+from .core import CoreAdapter, HttpCoreAdapter
+from .mock import MockAdapter, MockCoreAdapter
 from .odoo import OdooAdapter
 from .woo import WooAdapter
 
-__all__ = ["BaseAdapter", "WooAdapter", "OdooAdapter", "MockAdapter"]
+__all__ = [
+    "BaseAdapter",
+    "WooAdapter",
+    "OdooAdapter",
+    "CoreAdapter",
+    "HttpCoreAdapter",
+    "MockAdapter",
+    "MockCoreAdapter",
+]
