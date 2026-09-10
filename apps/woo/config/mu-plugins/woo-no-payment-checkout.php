@@ -19,3 +19,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // 购物车不要求“需要支付”，WooCommerce 会跳过支付步骤直接进入下单。
 add_filter( 'woocommerce_cart_needs_payment', '__return_false' );
+
+// block checkout / Store API 下单走订单级 needs_payment()（WC_Order::needs_payment，
+// 总价 > 0 即需支付）。前台因上面的 cart 过滤器已隐藏支付步骤、不再提交 payment_method，
+// 若订单级仍判定“需支付”会得到 400「No payment method provided」。此处同步强制 false，
+// 让 Store API 的 Checkout 路由走 process_without_payment()（payment_complete）。
+add_filter( 'woocommerce_order_needs_payment', '__return_false' );
