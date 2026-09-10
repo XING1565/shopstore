@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopstore.local/contracts/schemas/product-projections.schema.json",
+  "title": "ProductProjections",
+  "description": "三系统投影契约。Core Product 是唯一业务主实体（拥有批发价与 MOQ 真相）；Woo 只持有前台展示投影；Odoo 只持有 SKU 与库存。投影由 Integration 写入目标系统，两者均不得携带批发价与 MOQ（additionalProperties: false 强制排除）。",
+  "$defs": {
+    "WooProductProjection": {
+      "type": "object",
+      "description": "Integration 写入 WooCommerce 的商品展示投影。批发价与 MOQ 不落地 Woo：由 marketplace-bridge 插件在渲染时从 Core API 读取并展示，Woo 后台不得手改批发价 / MOQ。status 是 Core 状态的展示映射（published→可见，draft/archived→隐藏），不是状态真相。",
+      "required": ["sku", "name", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "sku": {
+          "$ref": "external-ids.schema.json#/$defs/Sku",
+          "description": "Woo 商品的 sku，与 Core 保持一致。"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "images": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "商品图 URL（可选）。"
+        },
+        "brand": {
+          "type": "string",
+          "description": "品牌名（展示用，仅名称，不含业务规则）。"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["visible", "hidden"],
+          "description": "Core 状态的展示映射：published → visible，draft / archived → hidden。"
+        }
+      }
+    },
+    "OdooProductProjection": {
+      "type": "object",
+      "description": "Integration 写入 Odoo 的产品投影：只包含 ERP 履约所需的最小字段（SKU 与名称）。库存数量（qty_available / on-hand）是 Odoo 主权，由 Odoo 维护，不在此投影中、也不复制回 Core。批发价与 MOQ 不落地 Odoo。",
+      "required": ["sku", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "sku": {
+          "$ref": "external-ids.schema.json#/$defs/Sku",
+          "description": "映射到 Odoo 产品的 default_code，与 Core 保持一致。"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Odoo 产品名称（履约用）。"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "sku": "DEMO-SKU-001",
+      "name": "Demo Product",
+      "description": "Demo description",
+      "images": ["https://cdn.example.test/demo-001.jpg"],
+      "brand": "Demo Brand",
+      "status": "visible"
+    },
+    {
+      "sku": "DEMO-SKU-001",
+      "name": "Demo Product"
+    }
+  ]
+}

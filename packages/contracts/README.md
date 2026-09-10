@@ -12,14 +12,16 @@ packages/contracts/
     openapi.yaml       # Core HTTP API 契约（健康检查 + 通用组件）
     README.md
   events/
-    envelope.schema.json  # 领域事件信封
-    README.md             # 事件命名与示例
+    envelope.schema.json      # 领域事件信封
+    product-events.schema.json  # 商品领域事件负载（created/published/updated/archived）
+    README.md                  # 事件命名与示例
   schemas/
     money.schema.json
     timestamp.schema.json
     error.schema.json
     external-ids.schema.json   # 外部 ID 映射与 SKU 规则
-    product.schema.json        # Core Product 骨架
+    product.schema.json        # Core Product（批发价 / MOQ 真相）
+    product-projections.schema.json  # Woo / Odoo 投影边界
     order.schema.json          # Marketplace Order 骨架
     README.md
 ```
